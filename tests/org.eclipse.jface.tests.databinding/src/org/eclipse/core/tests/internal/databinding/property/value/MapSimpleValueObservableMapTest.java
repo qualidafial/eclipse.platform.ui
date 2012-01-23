@@ -13,8 +13,12 @@
 package org.eclipse.core.tests.internal.databinding.property.value;
 
 import org.eclipse.core.databinding.observable.map.WritableMap;
+import org.eclipse.core.internal.databinding.beans.BeanPropertyHelper;
+import org.eclipse.core.internal.databinding.beans.BeanValueProperty;
 import org.eclipse.core.internal.databinding.property.value.MapSimpleValueObservableMap;
 import org.eclipse.core.internal.databinding.property.value.SelfValueProperty;
+import org.eclipse.core.tests.internal.databinding.beans.Bean;
+import org.eclipse.jface.databinding.conformance.util.ChangeEventTracker;
 import org.eclipse.jface.tests.databinding.AbstractDefaultRealmTestCase;
 
 public class MapSimpleValueObservableMapTest extends
@@ -52,5 +56,28 @@ public class MapSimpleValueObservableMapTest extends
 
 		// Check that the replaced old value is our original value.
 		assertSame(oldValue, returnedOldValue);
+	}
+
+	public void testLastListenerRemovedClearsListeners() {
+		WritableMap masterMap = new WritableMap(String.class, Bean.class);
+
+		Bean masterValue = new Bean("detailValue");
+		masterMap.put("masterKey", masterValue);
+
+		BeanValueProperty detailProperty = new BeanValueProperty(
+				BeanPropertyHelper.getPropertyDescriptor(Bean.class, "value"),
+				String.class);
+		MapSimpleValueObservableMap detailMap = new MapSimpleValueObservableMap(
+				masterMap, detailProperty);
+
+		assertFalse(masterValue.hasListeners("value"));
+
+		ChangeEventTracker tracker = ChangeEventTracker.observe(detailMap);
+
+		assertTrue(masterValue.hasListeners("value"));
+
+		detailMap.removeChangeListener(tracker);
+
+		assertFalse(masterValue.hasListeners("value"));
 	}
 }

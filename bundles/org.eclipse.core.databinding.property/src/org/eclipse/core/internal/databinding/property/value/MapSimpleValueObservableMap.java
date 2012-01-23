@@ -206,6 +206,7 @@ public class MapSimpleValueObservableMap extends AbstractObservableMap
 		masterMap.removeMapChangeListener(masterListener);
 		masterMap.removeStaleListener(staleListener);
 		if (knownMasterValues != null) {
+			knownMasterValues.clear();
 			knownMasterValues.dispose();
 			knownMasterValues = null;
 		}
