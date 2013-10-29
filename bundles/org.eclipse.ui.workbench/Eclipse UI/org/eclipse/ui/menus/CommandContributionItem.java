@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2009 IBM Corporation and others.
+ * Copyright (c) 2006, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -164,6 +164,8 @@ public class CommandContributionItem extends ContributionItem {
 	// items contributed
 	private String contributedLabel;
 
+	private String contributedTooltip;
+
 	private ImageDescriptor contributedIcon;
 
 	private ImageDescriptor contributedDisabledIcon;
@@ -184,6 +186,7 @@ public class CommandContributionItem extends ContributionItem {
 		super(contributionParameters.id);
 
 		contributedLabel = contributionParameters.label;
+		contributedTooltip = contributionParameters.tooltip;
 		contributedIcon = contributionParameters.icon;
 		contributedDisabledIcon = contributionParameters.disabledIcon;
 		contributedHoverIcon = contributionParameters.hoverIcon;
@@ -216,41 +219,6 @@ public class CommandContributionItem extends ContributionItem {
 				contributionParameters.parameters);
 
 		if (command != null) {
-			try {
-				UIElement callback = new UIElement(
-						contributionParameters.serviceLocator) {
-
-					public void setChecked(boolean checked) {
-						CommandContributionItem.this.setChecked(checked);
-					}
-
-					public void setDisabledIcon(ImageDescriptor desc) {
-						CommandContributionItem.this.setDisabledIcon(desc);
-					}
-
-					public void setHoverIcon(ImageDescriptor desc) {
-						CommandContributionItem.this.setHoverIcon(desc);
-					}
-
-					public void setIcon(ImageDescriptor desc) {
-						CommandContributionItem.this.setIcon(desc);
-					}
-
-					public void setText(String text) {
-						CommandContributionItem.this.setText(text);
-					}
-
-					public void setTooltip(String text) {
-						CommandContributionItem.this.setTooltip(text);
-					}
-
-					public void setDropDownId(String id) {
-						dropDownMenuOverride = id;
-					}
-				};
-				elementRef = commandService.registerElementForCommand(command,
-						callback);
-				command.getCommand().addCommandListener(getCommandListener());
 				setImages(contributionParameters.serviceLocator,
 						contributionParameters.iconStyle);
 
@@ -268,17 +236,6 @@ public class CommandContributionItem extends ContributionItem {
 				if (workbench != null && helpContextId != null) {
 					this.workbenchHelpSystem = workbench.getHelpSystem();
 				}
-			} catch (NotDefinedException e) {
-				StatusManager
-						.getManager()
-						.handle(
-								StatusUtil
-										.newStatus(
-												IStatus.ERROR,
-												"Unable to register menu item \"" + getId() //$NON-NLS-1$
-														+ "\", command \"" + contributionParameters.commandId + "\" not defined", //$NON-NLS-1$ //$NON-NLS-2$
-												null));
-			}
 		}
 
 	}
@@ -378,6 +335,7 @@ public class CommandContributionItem extends ContributionItem {
 					IHandler handler = commandEvent.getCommand().getHandler();
 					if (shouldRestoreAppearance(handler)) {
 						label = contributedLabel;
+						tooltip = contributedTooltip;
 						icon = contributedIcon;
 						disabledIcon = contributedDisabledIcon;
 						hoverIcon = contributedHoverIcon;
@@ -490,8 +448,7 @@ public class CommandContributionItem extends ContributionItem {
 		update(null);
 		updateIcons();
 
-		bindingService.addBindingManagerListener(bindingManagerListener);
-
+		establishReferences();
 	}
 	
 	/* (non-Javadoc)
@@ -522,8 +479,7 @@ public class CommandContributionItem extends ContributionItem {
 		update(null);
 		updateIcons();
 
-		bindingService.addBindingManagerListener(bindingManagerListener);
-
+		establishReferences();
 	}
 
 	/*
@@ -557,7 +513,7 @@ public class CommandContributionItem extends ContributionItem {
 		update(null);
 		updateIcons();
 
-		bindingService.addBindingManagerListener(bindingManagerListener);
+		establishReferences();
 	}
 
 	/*
@@ -741,10 +697,77 @@ public class CommandContributionItem extends ContributionItem {
 
 	private void handleWidgetDispose(Event event) {
 		if (event.widget == widget) {
+			disconnectReferences();
 			widget.removeListener(SWT.Selection, getItemListener());
 			widget.removeListener(SWT.Dispose, getItemListener());
 			widget = null;
 			disposeOldImages();
+		}
+	}
+
+	public void setParent(IContributionManager parent) {
+		super.setParent(parent);
+		if (parent == null)
+			disconnectReferences();
+	}
+
+	private void establishReferences() {
+		if (command != null) {
+			UIElement callback = new UIElement(serviceLocator) {
+	
+				public void setChecked(boolean checked) {
+					CommandContributionItem.this.setChecked(checked);
+				}
+	
+				public void setDisabledIcon(ImageDescriptor desc) {
+					CommandContributionItem.this.setDisabledIcon(desc);
+				}
+	
+				public void setHoverIcon(ImageDescriptor desc) {
+					CommandContributionItem.this.setHoverIcon(desc);
+				}
+	
+				public void setIcon(ImageDescriptor desc) {
+					CommandContributionItem.this.setIcon(desc);
+				}
+	
+				public void setText(String text) {
+					CommandContributionItem.this.setText(text);
+				}
+	
+				public void setTooltip(String text) {
+					CommandContributionItem.this.setTooltip(text);
+				}
+	
+				public void setDropDownId(String id) {
+					dropDownMenuOverride = id;
+				}
+			};
+			try {
+				elementRef = commandService.registerElementForCommand(command, callback);
+			} catch (NotDefinedException e) {
+				StatusManager.getManager().handle(
+						StatusUtil.newStatus(IStatus.ERROR, "Unable to register menu item \"" + getId() //$NON-NLS-1$
+								+ "\", command \"" + command.getId() + "\" not defined", //$NON-NLS-1$ //$NON-NLS-2$
+								null));
+			}
+			command.getCommand().addCommandListener(getCommandListener());
+		}
+		bindingService.addBindingManagerListener(bindingManagerListener);
+	}
+
+	private void disconnectReferences() {
+		if (elementRef != null) {
+			commandService.unregisterElement(elementRef);
+			elementRef = null;
+		}
+		if (commandListener != null) {
+			command.getCommand().removeCommandListener(commandListener);
+			commandListener = null;
+		}
+
+		if (bindingService != null) {
+			bindingService.removeBindingManagerListener(bindingManagerListener);
 		}
 	}
 
@@ -758,18 +781,8 @@ public class CommandContributionItem extends ContributionItem {
 			widget.dispose();
 			widget = null;
 		}
-		if (elementRef != null) {
-			commandService.unregisterElement(elementRef);
-			elementRef = null;
-		}
-		if (commandListener != null) {
-			command.getCommand().removeCommandListener(commandListener);
-			commandListener = null;
-		}
 
-		if (bindingService != null) {
-			bindingService.removeBindingManagerListener(bindingManagerListener);
-		}
+		disconnectReferences();
 
 		command = null;
 		commandService = null;
@@ -1022,9 +1035,9 @@ public class CommandContributionItem extends ContributionItem {
 		data.disabledIcon = contributedDisabledIcon;
 		data.hoverIcon = contributedHoverIcon;
 		data.label = contributedLabel;
+		data.tooltip = contributedTooltip;
 		data.helpContextId = helpContextId;
 		data.mnemonic = mnemonic;
-		data.tooltip = tooltip;
 		return data;
 	}
 

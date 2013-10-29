@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -18,12 +18,13 @@ import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Composite;
 
 /**
- * This is a specialized tool control used by the TrimBarLayout to modify the layout mechanisms.
+ * This is a specialized tool control used by the TrimBarLayout to modify the
+ * layout mechanisms.
  */
 public class LayoutModifierToolControl {
 	@PostConstruct
 	void createWidget(Composite parent, MToolControl tc) {
-		Composite comp = new Composite(parent, SWT.NO_BACKGROUND) {
+		Composite comp = new Composite(parent, SWT.NONE) {
 			/*
 			 * (non-Javadoc)
 			 * 

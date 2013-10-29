@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2007 IBM Corporation and others.
+ * Copyright (c) 2004, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -37,15 +37,16 @@ import org.eclipse.ui.tests.harness.util.FileUtil;
  * @since 3.3
  */
 public class ArbitraryPropertiesEditorTest extends TestCase {
-	/**
-	 * 
-	 */
 	private static final String USER_PROP = "org.eclipse.ui.tests.users";
 
 	private static final String EDITOR_ID = "org.eclipse.ui.tests.TitleTestEditor";
 
 	public static TestSuite suite() {
-		return new TestSuite(ArbitraryPropertiesEditorTest.class);
+		TestSuite ts = new TestSuite("org.eclipse.ui.tests.session.ArbitraryPropertiesEditorTest");
+		ts.addTest(new ArbitraryPropertiesEditorTest("testOpenEditor"));
+		ts.addTest(new ArbitraryPropertiesEditorTest("testSecondOpening"));
+		ts.addTest(new ArbitraryPropertiesEditorTest("testPartInstantiation"));
+		return ts;
 	}
 
 	public ArbitraryPropertiesEditorTest(String testName) {

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,9 +15,9 @@ import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.e4.ui.model.application.ui.basic.MPartStack;
 import org.eclipse.e4.ui.model.application.ui.basic.MStackElement;
-import org.eclipse.e4.ui.widgets.CTabFolder;
 import org.eclipse.e4.ui.workbench.IPresentationEngine;
 import org.eclipse.e4.ui.workbench.modeling.EPartService;
+import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.graphics.Point;
 
 /**
@@ -85,10 +85,10 @@ public class PartDragAgent extends DragAgent {
 	 * application.ui.MUIElement)
 	 */
 	@Override
-	public void dragStart(MUIElement element, DnDInfo info) {
-		super.dragStart(element, info);
+	public void dragStart(DnDInfo info) {
+		super.dragStart(info);
 		if (dndManager.getFeedbackStyle() != DnDManager.SIMPLE)
-			dndManager.hostElement(element, 16, 10);
+			dndManager.hostElement(dragElement, 16, 10);
 	}
 
 	/*
@@ -97,11 +97,11 @@ public class PartDragAgent extends DragAgent {
 	 * @see org.eclipse.e4.ui.workbench.addons.dndaddon.DragAgent#dragFinished()
 	 */
 	@Override
-	public void dragFinished() {
+	public void dragFinished(boolean performDrop, DnDInfo info) {
 		if (dragElement instanceof MPart) {
 			EPartService ps = dndManager.getDragWindow().getContext().get(EPartService.class);
 			ps.activate((MPart) dragElement);
 		}
-		super.dragFinished();
+		super.dragFinished(performDrop, info);
 	}
 }

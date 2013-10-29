@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2010 IBM Corporation and others.
+ * Copyright (c) 2009, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -297,8 +297,6 @@ public abstract class HeadlessApplicationTest extends
 		for (MWindow window : windows) {
 			E4Workbench.initializeContext(appContext, window);
 		}
-
-		E4Workbench.processHierarchy(application);
 
 		processPartContributions(application.getContext(), resource);
 

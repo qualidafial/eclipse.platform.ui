@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2008 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -161,7 +161,9 @@ public class LabelRetargetAction extends RetargetAction {
         String str = removeAcceleratorText(newText);
         // Append our accelerator
         if (acceleratorText != null) {
-			str = str + acceleratorText;
+			str = str + '\t' + acceleratorText;
+		} else if (str != newText) {
+			str = str + '\t';
 		}
         return str;
     }

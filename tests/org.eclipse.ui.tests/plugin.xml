@@ -3646,6 +3646,11 @@
             defaultHandler="org.eclipse.ui.tests.menus.HelloEHandler"
             id="org.eclipse.ui.tests.menus.enabledWorld"
             name="Hello">
+         <commandParameter
+               id="Greeting"
+               name="Greeting"
+               optional="true">
+         </commandParameter>
       </command>
       <command
             categoryId="org.eclipse.ui.category.window"
@@ -4357,5 +4362,19 @@
                class="org.eclipse.ui.tests.WindowlessRCPApplication">
          </run>
       </application>
+   </extension>
+   <extension
+         id="MenuHelperTest"
+         point="org.eclipse.ui.menus">
+      <menuContribution
+            allPopups="false"
+            locationURI="menu:org.eclipse.ui.tests.api.MenuTestHarness">
+         <menu
+               commandId="org.eclipse.ui.edit.copy"
+               icon="IMG_OBJ_FOLDER"
+               id="MenuHelperTest"
+               label="MenuHelperTest">
+         </menu>
+      </menuContribution>
    </extension>
 </plugin>

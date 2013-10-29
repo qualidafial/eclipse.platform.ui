@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2006 IBM Corporation and others.
+ * Copyright (c) 2004, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -41,6 +41,7 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.internal.PartSite;
 import org.eclipse.ui.internal.PluginActionContributionItem;
 import org.eclipse.ui.internal.PopupMenuExtender;
 import org.eclipse.ui.internal.WorkbenchWindow;
@@ -331,7 +332,7 @@ public final class ObjectContributionTest extends UITestCase {
 		fakeMenuManager.add(new GroupMarker(
 				org.eclipse.ui.IWorkbenchActionConstants.MB_ADDITIONS));
 		final PopupMenuExtender extender = new PopupMenuExtender(null,
-				fakeMenuManager, selectionProvider, part);
+				fakeMenuManager, selectionProvider, part, ((PartSite)part.getSite()).getContext());
 
 		/*
 		 * Pretend to show the pop-up menu -- looking to motivate the extender

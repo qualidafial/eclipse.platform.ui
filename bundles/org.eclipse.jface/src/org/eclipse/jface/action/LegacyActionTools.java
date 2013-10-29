@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2009 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,10 +15,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.StringTokenizer;
 
-import org.eclipse.swt.SWT;
-
 import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.util.Util;
+import org.eclipse.swt.SWT;
 
 /**
  * <p>
@@ -39,7 +38,7 @@ public final class LegacyActionTools {
 	 * 
 	 * @see #findKeyCode
 	 */
-	private static Map keyCodes = null;
+	private static Map<String, Integer> keyCodes = null;
 
 	/**
 	 * Table of string representations of keys (key type: <code>Integer</code>,
@@ -48,7 +47,7 @@ public final class LegacyActionTools {
 	 * 
 	 * @see #findKeyString
 	 */
-	private static Map keyStrings = null;
+	private static Map<Integer, String> keyStrings = null;
 
 	/**
 	 * The localized uppercase version of ALT
@@ -72,7 +71,7 @@ public final class LegacyActionTools {
 	 * 
 	 * @see #findLocalizedKeyCode
 	 */
-	private static Map localizedKeyCodes = null;
+	private static Map<String, Integer> localizedKeyCodes = null;
 
 	/**
 	 * The localized uppercase version of SHIFT
@@ -183,7 +182,8 @@ public final class LegacyActionTools {
 	/**
 	 * Extracts the accelerator text from the given text. Returns
 	 * <code>null</code> if there is no accelerator text, and the empty string
-	 * if there is no text after the accelerator delimeter (tab or '@').
+	 * if there is no text after the accelerator delimiter (last tab or
+	 * last '@' if there's no tab).
 	 * 
 	 * @param text
 	 *            the text for the action; may be <code>null</code>.
@@ -276,7 +276,7 @@ public final class LegacyActionTools {
 			initKeyCodes();
 		}
 		token = token.toUpperCase();
-		Integer i = (Integer) keyCodes.get(token);
+		Integer i = keyCodes.get(token);
 		if (i != null) {
 			return i.intValue();
 		}
@@ -305,7 +305,7 @@ public final class LegacyActionTools {
 		}
 		int i = keyCode & ~(SWT.CTRL | SWT.ALT | SWT.SHIFT | SWT.COMMAND);
 		Integer integer = new Integer(i);
-		String result = (String) keyStrings.get(integer);
+		String result = keyStrings.get(integer);
 		if (result != null) {
 			return result;
 		}
@@ -331,7 +331,7 @@ public final class LegacyActionTools {
 			initLocalizedKeyCodes();
 		}
 		token = token.toUpperCase();
-		Integer i = (Integer) localizedKeyCodes.get(token);
+		Integer i = localizedKeyCodes.get(token);
 		if (i != null) {
 			return i.intValue();
 		}
@@ -478,7 +478,7 @@ public final class LegacyActionTools {
 	 * Initializes the internal key code table.
 	 */
 	private static final void initKeyCodes() {
-		keyCodes = new HashMap(40);
+		keyCodes = new HashMap<String, Integer>(40);
 
 		keyCodes.put("BACKSPACE", new Integer(8)); //$NON-NLS-1$
 		keyCodes.put("TAB", new Integer(9)); //$NON-NLS-1$
@@ -524,7 +524,7 @@ public final class LegacyActionTools {
 	 * Initializes the internal key string table.
 	 */
 	private static void initKeyStrings() {
-		keyStrings = new HashMap(40);
+		keyStrings = new HashMap<Integer, String>(40);
 
 		keyStrings.put(new Integer(8), JFaceResources.getString("Backspace")); //$NON-NLS-1$
 		keyStrings.put(new Integer(9), JFaceResources.getString("Tab")); //$NON-NLS-1$
@@ -578,7 +578,7 @@ public final class LegacyActionTools {
 	 * Initializes the localized internal key code table.
 	 */
 	private static void initLocalizedKeyCodes() {
-		localizedKeyCodes = new HashMap(40);
+		localizedKeyCodes = new HashMap<String, Integer>(40);
 
 		localizedKeyCodes.put(JFaceResources
 				.getString("Backspace").toUpperCase(), new Integer(8)); //$NON-NLS-1$
@@ -705,7 +705,8 @@ public final class LegacyActionTools {
 	/**
 	 * Convenience method for removing any optional accelerator text from the
 	 * given string. The accelerator text appears at the end of the text, and is
-	 * separated from the main part by a single tab character <code>'\t'</code>.
+	 * separated from the main part by the last tab character <code>'\t'</code>
+	 * (or the last <code>'@'</code> if there is no tab).
 	 * 
 	 * @param text
 	 *            the text

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2008 IBM Corporation and others.
+ * Copyright (c) 2006, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -20,6 +20,7 @@ import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.internal.views.properties.tabbed.view.TabbedPropertyComposite;
 import org.eclipse.ui.tests.views.properties.tabbed.sections.InformationTwoSection;
 import org.eclipse.ui.tests.views.properties.tabbed.sections.NameSection;
 import org.eclipse.ui.tests.views.properties.tabbed.views.TestsPerspective;
@@ -201,6 +202,105 @@ public class TabbedPropertySheetPageTest
     }
 
     /**
+     * When Information node is selected, the Information tab is widest.
+     */
+    public void test_widestLabelIndex1() {
+        /**
+         * select Information node
+         */
+        setSelection(new TreeNode[] {treeNodes[0]});
+        ITabDescriptor[] tabDescriptors = testsView.getTabbedPropertySheetPage().getActiveTabs();
+
+        /**
+         * First tab is Name
+         */
+        assertEquals("Name", tabDescriptors[0].getLabel());//$NON-NLS-1$
+        /**
+         * Second tab is Information
+         */
+        assertEquals("Information", tabDescriptors[1].getLabel());//$NON-NLS-1$
+        /**
+         * Third tab is Message
+         */
+        assertEquals("Message", tabDescriptors[2].getLabel());//$NON-NLS-1$
+        /**
+         * No fourth tab
+         */
+        assertEquals(3, tabDescriptors.length);
+
+        /**
+         * Information tab is widest
+         */
+        assertEquals(1, ((TabbedPropertyComposite) testsView.getTabbedPropertySheetPage().getControl()).getList().getWidestLabelIndex());
+    }
+
+    /**
+     * When Error node is selected, the Message tab is widest.
+     */
+    public void test_widestLabelIndex2() {
+        /**
+         * select Error node
+         */
+        setSelection(new TreeNode[] {treeNodes[2]});
+        ITabDescriptor[] tabDescriptors = testsView.getTabbedPropertySheetPage().getActiveTabs();
+
+        /**
+         * First tab is Name
+         */
+        assertEquals("Name", tabDescriptors[0].getLabel());//$NON-NLS-1$
+        /**
+         * Second tab is Error
+         */
+        assertEquals("Error", tabDescriptors[1].getLabel());//$NON-NLS-1$
+        /**
+         * Third tab is Message
+         */
+        assertEquals("Message", tabDescriptors[2].getLabel());//$NON-NLS-1$
+        /**
+         * No fourth tab
+         */
+        assertEquals(3, tabDescriptors.length);
+
+        /**
+         * Message tab is widest
+         */
+        assertEquals(2, ((TabbedPropertyComposite) testsView.getTabbedPropertySheetPage().getControl()).getList().getWidestLabelIndex());
+    }
+
+    /**
+     * When Warning node is selected, the Warning tab is widest.
+     */
+    public void test_widestLabelIndex3() {
+        /**
+         * select Warning node
+         */
+        setSelection(new TreeNode[] {treeNodes[3]});
+        ITabDescriptor[] tabDescriptors = testsView.getTabbedPropertySheetPage().getActiveTabs();
+
+        /**
+         * First tab is Name
+         */
+        assertEquals("Name", tabDescriptors[0].getLabel());//$NON-NLS-1$
+        /**
+         * Second tab is Warning
+         */
+        assertEquals("Warning", tabDescriptors[1].getLabel());//$NON-NLS-1$
+        /**
+         * Third tab is Message
+         */
+        assertEquals("Message", tabDescriptors[2].getLabel());//$NON-NLS-1$
+        /**
+         * No fourth tab
+         */
+        assertEquals(3, tabDescriptors.length);
+
+        /**
+         * Warning tab is widest
+         */
+        assertEquals(1, ((TabbedPropertyComposite) testsView.getTabbedPropertySheetPage().getControl()).getList().getWidestLabelIndex());
+    }
+
+    /**
      * When File, Folder and Project Nodes are selected, only the Resource tab
      * displays. Tests input attribute.
      */
@@ -230,6 +330,10 @@ public class TabbedPropertySheetPageTest
         assertNull(tabContents);
         ITabDescriptor[] TabDescriptors = testsView.getTabbedPropertySheetPage().getActiveTabs();
         assertEquals(0, TabDescriptors.length);
+        /**
+         * widestLabelIndex should be -1
+         */
+        assertEquals(-1, ((TabbedPropertyComposite) testsView.getTabbedPropertySheetPage().getControl()).getList().getWidestLabelIndex());
     }
 
 }

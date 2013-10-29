@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2012 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -30,6 +30,7 @@ import org.eclipse.ui.internal.EditorReference;
 import org.eclipse.ui.internal.PartSite;
 import org.eclipse.ui.internal.WorkbenchMessages;
 import org.eclipse.ui.internal.WorkbenchPartReference;
+import org.eclipse.ui.internal.menus.MenuHelper;
 import org.eclipse.ui.internal.registry.EditorDescriptor;
 import org.eclipse.ui.internal.registry.IWorkbenchRegistryConstants;
 import org.eclipse.ui.part.AbstractMultiEditor;
@@ -94,26 +95,16 @@ public class CompatibilityEditor extends CompatibilityPart {
 	protected boolean createPartControl(final IWorkbenchPart legacyPart, Composite parent) {
 		super.createPartControl(legacyPart, parent);
 
+		clearMenuItems();
+
 		part.getContext().set(IEditorPart.class, (IEditorPart) legacyPart);
 
 		EditorDescriptor descriptor = reference.getDescriptor();
 		if (descriptor != null) {
 			IConfigurationElement element = descriptor.getConfigurationElement();
 			if (element != null) {
-				String iconURI = element.getAttribute(IWorkbenchRegistryConstants.ATT_ICON);
-				if (iconURI != null && !iconURI.startsWith("platform:/plugin/")) { //$NON-NLS-1$
-					StringBuilder builder = new StringBuilder("platform:/plugin/"); //$NON-NLS-1$
-					builder.append(element.getContributor().getName()).append('/');
-
-					// FIXME: need to get rid of $nl$ properly
-					// this can be done with FileLocator
-					if (iconURI.startsWith("$nl$")) { //$NON-NLS-1$
-						iconURI = iconURI.substring(4);
-					}
-
-					builder.append(iconURI);
-					iconURI = builder.toString();
-				}
+				String iconURI = MenuHelper.getIconURI(element,
+						IWorkbenchRegistryConstants.ATT_ICON);
 				part.setIconURI(iconURI);
 			}
 		}
@@ -126,6 +117,7 @@ public class CompatibilityEditor extends CompatibilityPart {
 				return false;
 			}
 		}
+
 		return true;
 	}
 

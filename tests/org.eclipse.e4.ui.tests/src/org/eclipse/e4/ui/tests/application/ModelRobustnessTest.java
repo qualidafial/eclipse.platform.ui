@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,10 +24,6 @@ import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 
-/**
- *
- */
-@SuppressWarnings("restriction")
 public class ModelRobustnessTest extends TestCase {
 
 	public void testLoadingInvalidContainments() {
@@ -77,6 +73,14 @@ public class ModelRobustnessTest extends TestCase {
 			fail("The adding of this should have failed");
 		} catch (IllegalArgumentException e) {
 			// This exception is expected!
+		} catch (ArrayStoreException e) {
+			// EMF 2.9 now throws this instead of IllegalArgumentException. See
+			// bug 407539
+		} catch (ClassCastException e) {
+			// EList.add says this is the expected exception, although testing
+			// indicates its one of the two previous exceptions that is really
+			// thrown.
+			// See bug 407539
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2008 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -109,7 +109,8 @@ public class StructuredSelection implements IStructuredSelection {
      * @param o the other object
      * @return <code>true</code> if they are equal, and <code>false</code> otherwise
      */
-    public boolean equals(Object o) {
+    @Override
+	public boolean equals(Object o) {
         if (this == o) {
             return true;
         }
@@ -198,7 +199,8 @@ public class StructuredSelection implements IStructuredSelection {
      *
      * @return debug string
      */
-    public String toString() {
+    @Override
+	public String toString() {
         return isEmpty() ? JFaceResources.getString("<empty_selection>") : toList().toString(); //$NON-NLS-1$
     }
 }

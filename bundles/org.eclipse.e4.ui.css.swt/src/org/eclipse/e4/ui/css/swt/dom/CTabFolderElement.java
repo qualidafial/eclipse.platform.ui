@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 Angelo Zerr and others.
+ * Copyright (c) 2009, 2012 Angelo Zerr and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,10 +10,9 @@
  *******************************************************************************/
 package org.eclipse.e4.ui.css.swt.dom;
 
-import org.eclipse.e4.ui.widgets.CTabFolder;
-
 import org.eclipse.e4.ui.css.core.dom.CSSStylableElement;
 import org.eclipse.e4.ui.css.core.engine.CSSEngine;
+import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Widget;
 import org.w3c.dom.Node;

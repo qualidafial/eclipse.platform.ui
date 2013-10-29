@@ -1,24 +1,40 @@
+/*******************************************************************************
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Joseph Carroll <jdsalingerjr@gmail.com> - Bug 385414 Contributing wizards 
+ *     to toolbar always displays icon and text
+ ******************************************************************************/
 package org.eclipse.e4.ui.workbench.renderers.swt;
 
 import javax.inject.Inject;
 import org.eclipse.e4.core.contexts.ContextInjectionFactory;
+import org.eclipse.e4.core.contexts.EclipseContextFactory;
 import org.eclipse.e4.core.contexts.IContextFunction;
 import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.core.di.annotations.CanExecute;
 import org.eclipse.e4.core.di.annotations.Execute;
+import org.eclipse.e4.core.di.annotations.Optional;
 import org.eclipse.e4.core.services.contributions.IContributionFactory;
+import org.eclipse.e4.core.services.log.Logger;
 import org.eclipse.e4.ui.internal.workbench.Activator;
+import org.eclipse.e4.ui.internal.workbench.ContributionsAnalyzer;
 import org.eclipse.e4.ui.internal.workbench.Policy;
 import org.eclipse.e4.ui.internal.workbench.swt.AbstractPartRenderer;
 import org.eclipse.e4.ui.model.application.MContribution;
 import org.eclipse.e4.ui.model.application.ui.MContext;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
-import org.eclipse.e4.ui.model.application.ui.MUILabel;
 import org.eclipse.e4.ui.model.application.ui.menu.ItemType;
 import org.eclipse.e4.ui.model.application.ui.menu.MItem;
 import org.eclipse.e4.ui.model.application.ui.menu.MMenu;
 import org.eclipse.e4.ui.model.application.ui.menu.MRenderedMenu;
 import org.eclipse.e4.ui.model.application.ui.menu.MToolItem;
+import org.eclipse.e4.ui.workbench.IPresentationEngine;
 import org.eclipse.e4.ui.workbench.IResourceUtilities;
 import org.eclipse.e4.ui.workbench.modeling.EModelService;
 import org.eclipse.e4.ui.workbench.swt.util.ISWTResourceUtilities;
@@ -35,10 +51,12 @@ import org.eclipse.jface.resource.LocalResourceManager;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.DisposeEvent;
 import org.eclipse.swt.events.DisposeListener;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Item;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
@@ -50,10 +68,16 @@ public class DirectContributionItem extends ContributionItem {
 	/** Internal key for transient maps to provide a runnable on widget disposal */
 	public static final String DISPOSABLE = "IDisposable"; //$NON-NLS-1$
 
+	private static final String FORCE_TEXT = "FORCE_TEXT"; //$NON-NLS-1$
+	private static final String ICON_URI = "iconURI"; //$NON-NLS-1$
+	private static final String DISABLED_URI = "disabledURI"; //$NON-NLS-1$
+	private static final String DCI_STATIC_CONTEXT = "DCI-staticContext"; //$NON-NLS-1$
+
 	private MItem model;
 	private Widget widget;
 	private Listener menuItemListener;
 	private LocalResourceManager localResourceManager;
+	private IEclipseContext infoContext;
 
 	@Inject
 	private IContributionFactory contribFactory;
@@ -67,6 +91,10 @@ public class DirectContributionItem extends ContributionItem {
 	void setResourceUtils(IResourceUtilities utils) {
 		resUtils = (ISWTResourceUtilities) utils;
 	}
+
+	@Inject
+	@Optional
+	private Logger logger;
 
 	private IMenuListener menuListener = new IMenuListener() {
 		public void menuAboutToShow(IMenuManager manager) {
@@ -119,7 +147,6 @@ public class DirectContributionItem extends ContributionItem {
 		widget.setData(AbstractPartRenderer.OWNING_ME, model);
 
 		update(null);
-		updateIcons();
 	}
 
 	/*
@@ -166,7 +193,6 @@ public class DirectContributionItem extends ContributionItem {
 		widget.setData(AbstractPartRenderer.OWNING_ME, model);
 
 		update(null);
-		updateIcons();
 	}
 
 	private void updateVisible() {
@@ -194,6 +220,7 @@ public class DirectContributionItem extends ContributionItem {
 	 */
 	@Override
 	public void update(String id) {
+		updateIcons();
 		if (widget instanceof MenuItem) {
 			updateMenuItem();
 		} else if (widget instanceof ToolItem) {
@@ -216,7 +243,9 @@ public class DirectContributionItem extends ContributionItem {
 	private void updateToolItem() {
 		ToolItem item = (ToolItem) widget;
 		final String text = model.getLocalizedLabel();
-		if (text != null) {
+		Image icon = item.getImage();
+		boolean mode = model.getTags().contains(FORCE_TEXT);
+		if ((icon == null || mode) && text != null) {
 			item.setText(text);
 		} else {
 			item.setText(""); //$NON-NLS-1$
@@ -228,41 +257,55 @@ public class DirectContributionItem extends ContributionItem {
 	}
 
 	private void updateIcons() {
-		if (widget instanceof MenuItem) {
-			MenuItem item = (MenuItem) widget;
-			LocalResourceManager m = new LocalResourceManager(
-					JFaceResources.getResources());
-			String iconURI = model.getIconURI();
-			ImageDescriptor icon = getImageDescriptor(model);
-			try {
-				item.setImage(icon == null ? null : m.createImage(icon));
-			} catch (DeviceResourceException e) {
-				icon = ImageDescriptor.getMissingImageDescriptor();
-				item.setImage(m.createImage(icon));
-				// as we replaced the failed icon, log the message once.
-				Activator.trace(Policy.DEBUG_MENUS,
-						"failed to create image " + iconURI, e); //$NON-NLS-1$
-			}
-			disposeOldImages();
-			localResourceManager = m;
-		} else if (widget instanceof ToolItem) {
-			ToolItem item = (ToolItem) widget;
-			LocalResourceManager m = new LocalResourceManager(
-					JFaceResources.getResources());
-			String iconURI = model.getIconURI();
-			ImageDescriptor icon = getImageDescriptor(model);
-			try {
-				item.setImage(icon == null ? null : m.createImage(icon));
-			} catch (DeviceResourceException e) {
-				icon = ImageDescriptor.getMissingImageDescriptor();
-				item.setImage(m.createImage(icon));
-				// as we replaced the failed icon, log the message once.
-				Activator.trace(Policy.DEBUG_MENUS,
-						"failed to create image " + iconURI, e); //$NON-NLS-1$
-			}
-			disposeOldImages();
-			localResourceManager = m;
+		if (!(widget instanceof Item)) {
+			return;
 		}
+		Item item = (Item) widget;
+		String iconURI = model.getIconURI() != null ? model.getIconURI() : ""; //$NON-NLS-1$
+		String disabledURI = getDisabledIconURI(model);
+		if (!iconURI.equals(item.getData(ICON_URI))
+				|| !disabledURI.equals(item.getData(DISABLED_URI))) {
+			LocalResourceManager resourceManager = new LocalResourceManager(
+					JFaceResources.getResources());
+			Image iconImage = getImage(iconURI, resourceManager);
+			item.setImage(iconImage);
+			item.setData(ICON_URI, iconURI);
+			if (item instanceof ToolItem) {
+				iconImage = getImage(disabledURI, resourceManager);
+				((ToolItem) item).setDisabledImage(iconImage);
+				item.setData(DISABLED_URI, disabledURI);
+			}
+			disposeOldImages();
+			localResourceManager = resourceManager;
+		}
+	}
+
+	private Image getImage(String iconURI, LocalResourceManager resourceManager) {
+		Image image = null;
+
+		if (iconURI != null && iconURI.length() > 0) {
+			ImageDescriptor iconDescriptor = resUtils
+					.imageDescriptorFromURI(URI.createURI(iconURI));
+			if (iconDescriptor != null) {
+				try {
+					image = resourceManager.createImage(iconDescriptor);
+				} catch (DeviceResourceException e) {
+					iconDescriptor = ImageDescriptor
+							.getMissingImageDescriptor();
+					image = resourceManager.createImage(iconDescriptor);
+					// as we replaced the failed icon, log the message once.
+					Activator.trace(Policy.DEBUG_MENUS,
+							"failed to create image " + iconURI, e); //$NON-NLS-1$
+				}
+			}
+		}
+		return image;
+	}
+
+	private String getDisabledIconURI(MItem toolItem) {
+		Object obj = toolItem.getTransientData().get(
+				IPresentationEngine.DISABLED_ICON_IMAGE_KEY);
+		return obj instanceof String ? (String) obj : ""; //$NON-NLS-1$
 	}
 
 	private void disposeOldImages() {
@@ -295,6 +338,10 @@ public class DirectContributionItem extends ContributionItem {
 
 	private void handleWidgetDispose(Event event) {
 		if (event.widget == widget) {
+			if (infoContext != null) {
+				infoContext.dispose();
+				infoContext = null;
+			}
 			widget.removeListener(SWT.Selection, getItemListener());
 			widget.removeListener(SWT.Dispose, getItemListener());
 			widget.removeListener(SWT.DefaultSelection, getItemListener());
@@ -337,8 +384,8 @@ public class DirectContributionItem extends ContributionItem {
 				}
 				model.setSelected(selection);
 			}
-			if (canExecuteItem()) {
-				executeItem();
+			if (canExecuteItem(event)) {
+				executeItem(event);
 			}
 		}
 	}
@@ -381,7 +428,7 @@ public class DirectContributionItem extends ContributionItem {
 			obj = ((MRenderedMenu) mmenu).getContributionManager();
 			if (obj instanceof IContextFunction) {
 				final IEclipseContext lclContext = getContext(mmenu);
-				obj = ((IContextFunction) obj).compute(lclContext);
+				obj = ((IContextFunction) obj).compute(lclContext, null);
 				((MRenderedMenu) mmenu).setContributionManager(obj);
 			}
 			if (obj instanceof IMenuCreator) {
@@ -402,37 +449,70 @@ public class DirectContributionItem extends ContributionItem {
 					return menu;
 				}
 			}
+		} else {
+			final IEclipseContext lclContext = getContext(model);
+			IPresentationEngine engine = lclContext
+					.get(IPresentationEngine.class);
+			obj = engine.createGui(mmenu, toolItem.getParent(), lclContext);
+			if (obj instanceof Menu) {
+				return (Menu) obj;
+			}
+			if (logger != null) {
+				logger.debug("Rendering returned " + obj); //$NON-NLS-1$
+			}
 		}
 		return null;
 	}
 
-	private void executeItem() {
+	private IEclipseContext getStaticContext(Event event) {
+		if (infoContext == null) {
+			infoContext = EclipseContextFactory.create(DCI_STATIC_CONTEXT);
+			ContributionsAnalyzer.populateModelInterfaces(model, infoContext,
+					model.getClass().getInterfaces());
+		}
+		if (event == null) {
+			infoContext.remove(Event.class);
+		} else {
+			infoContext.set(Event.class, event);
+		}
+		return infoContext;
+	}
+
+	private void executeItem(Event trigger) {
 		final IEclipseContext lclContext = getContext(model);
 		if (!checkContribution(lclContext)) {
 			return;
 		}
 		MContribution contrib = (MContribution) model;
-		lclContext.set(MItem.class, model);
+		IEclipseContext staticContext = getStaticContext(trigger);
 		ContextInjectionFactory.invoke(contrib.getObject(), Execute.class,
-				lclContext);
-		lclContext.remove(MItem.class);
+				getExecutionContext(lclContext), staticContext, null);
 	}
 
-	private boolean canExecuteItem() {
+	private boolean canExecuteItem(Event trigger) {
 		final IEclipseContext lclContext = getContext(model);
 		if (!checkContribution(lclContext)) {
 			return false;
 		}
 		MContribution contrib = (MContribution) model;
-		lclContext.set(MItem.class, model);
-		try {
-			Boolean result = ((Boolean) ContextInjectionFactory.invoke(
-					contrib.getObject(), CanExecute.class, lclContext,
-					Boolean.TRUE));
-			return result.booleanValue();
-		} finally {
-			lclContext.remove(MItem.class);
-		}
+		IEclipseContext staticContext = getStaticContext(trigger);
+		Boolean result = ((Boolean) ContextInjectionFactory.invoke(
+				contrib.getObject(), CanExecute.class,
+				getExecutionContext(lclContext), staticContext, Boolean.TRUE));
+		return result.booleanValue();
+	}
+
+	/**
+	 * Return the execution context for the @CanExecute and @Execute methods.
+	 * This should be the same as the execution context used by the
+	 * EHandlerService.
+	 * 
+	 * @param context
+	 *            the context for this item
+	 * @return the execution context
+	 */
+	private IEclipseContext getExecutionContext(IEclipseContext context) {
+		return context.getActiveLeaf();
 	}
 
 	private boolean checkContribution(IEclipseContext lclContext) {
@@ -457,14 +537,6 @@ public class DirectContributionItem extends ContributionItem {
 			menuMgr.addMenuListener(menuListener);
 		}
 		super.setParent(parent);
-	}
-
-	private ImageDescriptor getImageDescriptor(MUILabel element) {
-		String iconURI = element.getIconURI();
-		if (iconURI != null && iconURI.length() > 0) {
-			return resUtils.imageDescriptorFromURI(URI.createURI(iconURI));
-		}
-		return null;
 	}
 
 	/**

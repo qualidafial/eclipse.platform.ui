@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,6 +13,12 @@
  *          ErrorDialog details area becomes huge with multi-line strings
  *******************************************************************************/
 package org.eclipse.jface.dialogs;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.Iterator;
 
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IStatus;
@@ -152,6 +158,7 @@ public class ErrorDialog extends IconAndMessageDialog {
 	 * of the error details area. Note that the Details button will only be
 	 * visible if the error being displayed specifies child details.
 	 */
+	@Override
 	protected void buttonPressed(int id) {
 		if (id == IDialogConstants.DETAILS_ID) {
 			// was the details button pressed?
@@ -164,6 +171,7 @@ public class ErrorDialog extends IconAndMessageDialog {
 	/*
 	 * (non-Javadoc) Method declared in Window.
 	 */
+	@Override
 	protected void configureShell(Shell shell) {
 		super.configureShell(shell);
 		shell.setText(title);
@@ -174,6 +182,7 @@ public class ErrorDialog extends IconAndMessageDialog {
 	 * 
 	 * @see org.eclipse.jface.dialogs.Dialog#createButtonsForButtonBar(org.eclipse.swt.widgets.Composite)
 	 */
+	@Override
 	protected void createButtonsForButtonBar(Composite parent) {
 		// create OK and Details buttons
 		createButton(parent, IDialogConstants.OK_ID, IDialogConstants.OK_LABEL,
@@ -238,6 +247,7 @@ public class ErrorDialog extends IconAndMessageDialog {
 	 * If the old behavior is desired by subclasses, get the returned composite's
 	 * layout data and set grabExcessVerticalSpace to true.
 	 */
+	@Override
 	protected Control createDialogArea(Composite parent) {
 		// Create a composite with standard margins and spacing
 		// Add the messageArea to this composite so that as subclasses add widgets to the messageArea
@@ -265,6 +275,7 @@ public class ErrorDialog extends IconAndMessageDialog {
 	/*
 	 * @see IconAndMessageDialog#createDialogAndButtonArea(Composite)
 	 */
+	@Override
 	protected void createDialogAndButtonArea(Composite parent) {
 		super.createDialogAndButtonArea(parent);
 		if (this.dialogArea instanceof Composite) {
@@ -281,6 +292,7 @@ public class ErrorDialog extends IconAndMessageDialog {
 	 * 
 	 * @see org.eclipse.jface.dialogs.IconAndMessageDialog#getImage()
 	 */
+	@Override
 	protected Image getImage() {
 		if (status != null) {
 			if (status.getSeverity() == IStatus.WARNING) {
@@ -352,6 +364,7 @@ public class ErrorDialog extends IconAndMessageDialog {
 	 * children, the error dialog will only be displayed if there is at least
 	 * one child status matching the mask.
 	 */
+	@Override
 	public int open() {
 		if (!AUTOMATED_MODE && shouldDisplay(status, displayMask)) {
 			return super.open();
@@ -473,7 +486,6 @@ public class ErrorDialog extends IconAndMessageDialog {
 		}
 
 		Throwable t = buildingStatus.getException();
-		boolean isCoreException = t instanceof CoreException;
 		boolean incrementNesting = false;
 
 		if (includeStatus) {
@@ -483,11 +495,15 @@ public class ErrorDialog extends IconAndMessageDialog {
 			}
 			String message = buildingStatus.getMessage();
 			sb.append(message);
-			listToPopulate.add(sb.toString());
+			java.util.List<String> lines = readLines(sb.toString());
+			for (Iterator<String> iterator = lines.iterator(); iterator.hasNext();) {
+				String line = iterator.next();
+				listToPopulate.add(line);
+			}
 			incrementNesting = true;
 		}
 
-		if (!isCoreException && t != null) {
+		if (!(t instanceof CoreException) && t != null) {
 			// Include low-level exception message
 			StringBuffer sb = new StringBuffer();
 			for (int i = 0; i < nesting; i++) {
@@ -508,7 +524,7 @@ public class ErrorDialog extends IconAndMessageDialog {
 		}
 
 		// Look for a nested core exception
-		if (isCoreException) {
+		if (t instanceof CoreException) {
 			CoreException ce = (CoreException) t;
 			IStatus eStatus = ce.getStatus();
 			// Only print the exception message if it is not contained in the
@@ -525,6 +541,21 @@ public class ErrorDialog extends IconAndMessageDialog {
 		}
 	}
 	
+	private static java.util.List<String> readLines(final String s) {
+		java.util.List<String> lines = new ArrayList<String>();
+		BufferedReader reader = new BufferedReader(new StringReader(s));
+		String line;
+		try {
+			while ((line = reader.readLine()) != null) {
+				if (line.length() > 0)
+					lines.add(line);
+			}
+		} catch (IOException e) {
+			// shouldn't get this
+		}
+		return lines;
+	}
+
 	/**
 	 * This method checks if {@link #populateList(List, IStatus, int, boolean)}
 	 * will add anything to the list.
@@ -545,20 +576,18 @@ public class ErrorDialog extends IconAndMessageDialog {
 		}
 
 		Throwable t = buildingStatus.getException();
-		boolean isCoreException = t instanceof CoreException;
-
 		if (includeStatus) {
 			return true;
 		}
 
-		if (!isCoreException && t != null) {
+		if (!(t instanceof CoreException) && t != null) {
 			return true;
 		}
 		
 		boolean result = false;
 
 		// Look for a nested core exception
-		if (isCoreException) {
+		if (t instanceof CoreException) {
 			CoreException ce = (CoreException) t;
 			IStatus eStatus = ce.getStatus();
 			// Gets exception message if it is not contained in the
@@ -689,6 +718,7 @@ public class ErrorDialog extends IconAndMessageDialog {
 	 * 
 	 * @see org.eclipse.jface.window.Window#close()
 	 */
+	@Override
 	public boolean close() {
 		if (clipboard != null) {
 			clipboard.dispose();
@@ -761,6 +791,7 @@ public class ErrorDialog extends IconAndMessageDialog {
 	/* (non-Javadoc)
 	 * @see org.eclipse.jface.dialogs.IconAndMessageDialog#getColumnCount()
 	 */
+	@Override
 	int getColumnCount() {
 		if (Policy.getErrorSupportProvider() == null)
 			return 2;
@@ -771,7 +802,8 @@ public class ErrorDialog extends IconAndMessageDialog {
      * (non-Javadoc)
      * @see org.eclipse.jface.dialogs.Dialog#isResizable()
      */
-    protected boolean isResizable() {
+    @Override
+	protected boolean isResizable() {
     	return true;
     }
 

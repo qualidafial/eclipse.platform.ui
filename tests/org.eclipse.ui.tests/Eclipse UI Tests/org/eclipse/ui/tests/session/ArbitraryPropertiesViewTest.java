@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2007 IBM Corporation and others.
+ * Copyright (c) 2004, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -30,9 +30,7 @@ import org.eclipse.ui.PlatformUI;
  * @since 3.3
  */
 public class ArbitraryPropertiesViewTest extends TestCase {
-	/**
-	 * 
-	 */
+	
 	private static final String USER_PROP = "org.eclipse.ui.tests.users";
 
 	private static final String PROBLEM_VIEW_ID = "org.eclipse.ui.views.ProblemView";
@@ -40,7 +38,11 @@ public class ArbitraryPropertiesViewTest extends TestCase {
 	private static final String VIEW_WITH_STATE_ID = "org.eclipse.ui.tests.session.ViewWithState";
 
 	public static TestSuite suite() {
-		return new TestSuite(ArbitraryPropertiesViewTest.class);
+		TestSuite ts = new TestSuite("org.eclipse.ui.tests.session.ArbitraryPropertiesViewTest");
+		ts.addTest(new ArbitraryPropertiesViewTest("test01ActivateView"));
+		ts.addTest(new ArbitraryPropertiesViewTest("test02SecondOpening"));
+		ts.addTest(new ArbitraryPropertiesViewTest("test03PartInstantiation"));
+		return ts;
 	}
 
 	public ArbitraryPropertiesViewTest(String testName) {

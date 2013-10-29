@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2010 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -37,7 +37,7 @@ public class IWorkbenchTest extends UITestCase {
     /**
      * Tests the activation of two windows.
      */
-    public void testGetActiveWorkbenchWindow() throws Throwable {
+    public void XXXtestGetActiveWorkbenchWindow() throws Throwable {
         IWorkbenchWindow win1, win2;
 
         // Test initial window.
@@ -126,7 +126,7 @@ public class IWorkbenchTest extends UITestCase {
     /**
      * openWorkbenchWindow(String, IAdaptable)
      */
-    public void testOpenWorkbenchWindow() throws Throwable {
+    public void XXXtestOpenWorkbenchWindow() throws Throwable {
         // open a window with valid perspective 
         IWorkbenchWindow win = null;
         try {
@@ -154,7 +154,7 @@ public class IWorkbenchTest extends UITestCase {
     /**
      * openWorkbenchWindow(IAdaptable)
      */
-    public void testOpenWorkbenchWindow2() throws Throwable {
+    public void XXXtestOpenWorkbenchWindow2() throws Throwable {
         // open a window with valid perspective 
         IWorkbenchWindow win = null;
 

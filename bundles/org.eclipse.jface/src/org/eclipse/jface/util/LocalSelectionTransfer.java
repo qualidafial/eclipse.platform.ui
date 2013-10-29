@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2006 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -87,7 +87,8 @@ public class LocalSelectionTransfer extends ByteArrayTransfer {
      * 
      * @return the type id used to identify this transfer.
      */
-    protected int[] getTypeIds() {
+    @Override
+	protected int[] getTypeIds() {
         return new int[] { TYPEID };
     }
 
@@ -96,7 +97,8 @@ public class LocalSelectionTransfer extends ByteArrayTransfer {
      * 
      * @return the type name used to identify this transfer.
      */
-    protected String[] getTypeNames() {
+    @Override
+	protected String[] getTypeNames() {
         return new String[] { TYPE_NAME };
     }
 
@@ -108,7 +110,8 @@ public class LocalSelectionTransfer extends ByteArrayTransfer {
      * 
      * @see org.eclipse.swt.dnd.ByteArrayTransfer#javaToNative(java.lang.Object, org.eclipse.swt.dnd.TransferData)
      */
-    public void javaToNative(Object object, TransferData transferData) {
+    @Override
+	public void javaToNative(Object object, TransferData transferData) {
         byte[] check = TYPE_NAME.getBytes();
         super.javaToNative(check, transferData);
     }
@@ -119,7 +122,8 @@ public class LocalSelectionTransfer extends ByteArrayTransfer {
      * 
      * @see org.eclipse.swt.dnd.ByteArrayTransfer#nativeToJava(TransferData)
      */
-    public Object nativeToJava(TransferData transferData) {
+    @Override
+	public Object nativeToJava(TransferData transferData) {
         Object result = super.nativeToJava(transferData);
         if (isInvalidNativeType(result)) {
         	Policy.getLog().log(new Status(

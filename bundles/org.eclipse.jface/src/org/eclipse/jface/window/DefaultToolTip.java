@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2007 IBM Corporation and others.
+ * Copyright (c) 2006, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -85,6 +85,7 @@ public class DefaultToolTip extends ToolTip {
 	 *            the parent of the content area
 	 * @return the content area created
 	 */
+	@Override
 	protected Composite createToolTipContentArea(Event event, Composite parent) {
 		Image image = getImage(event);
 		Image bgImage = getBackgroundImage(event);

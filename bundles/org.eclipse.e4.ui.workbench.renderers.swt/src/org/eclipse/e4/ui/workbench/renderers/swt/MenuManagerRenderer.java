@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2010 IBM Corporation and others.
+ * Copyright (c) 2009, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,7 @@
  * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Marco Descher <marco@descher.at> - Bug 389063, Bug 398865, Bug 398866, Bug 405471						  
  *******************************************************************************/
 package org.eclipse.e4.ui.workbench.renderers.swt;
 
@@ -14,11 +15,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+import org.eclipse.e4.core.commands.ExpressionContext;
 import org.eclipse.e4.core.contexts.ContextInjectionFactory;
 import org.eclipse.e4.core.contexts.IContextFunction;
 import org.eclipse.e4.core.contexts.IEclipseContext;
@@ -31,8 +35,10 @@ import org.eclipse.e4.ui.model.application.ui.MCoreExpression;
 import org.eclipse.e4.ui.model.application.ui.MElementContainer;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.application.ui.MUILabel;
+import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
 import org.eclipse.e4.ui.model.application.ui.menu.MDirectMenuItem;
+import org.eclipse.e4.ui.model.application.ui.menu.MDynamicMenuContribution;
 import org.eclipse.e4.ui.model.application.ui.menu.MHandledMenuItem;
 import org.eclipse.e4.ui.model.application.ui.menu.MMenu;
 import org.eclipse.e4.ui.model.application.ui.menu.MMenuContribution;
@@ -47,7 +53,6 @@ import org.eclipse.e4.ui.model.application.ui.menu.MRenderedMenuItem;
 import org.eclipse.e4.ui.model.application.ui.menu.impl.MenuFactoryImpl;
 import org.eclipse.e4.ui.workbench.IResourceUtilities;
 import org.eclipse.e4.ui.workbench.UIEvents;
-import org.eclipse.e4.ui.workbench.modeling.ExpressionContext;
 import org.eclipse.e4.ui.workbench.swt.util.ISWTResourceUtilities;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EObject;
@@ -57,6 +62,7 @@ import org.eclipse.jface.action.GroupMarker;
 import org.eclipse.jface.action.IContributionItem;
 import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
+import org.eclipse.jface.internal.MenuManagerEventHelper;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.DisposeEvent;
@@ -72,6 +78,7 @@ import org.osgi.service.event.EventHandler;
  * Create a contribute part.
  */
 public class MenuManagerRenderer extends SWTPartRenderer {
+	public static final String VISIBILITY_IDENTIFIER = "IIdentifier"; //$NON-NLS-1$
 	private static final String NO_LABEL = "UnLabled"; //$NON-NLS-1$
 	public static final String GROUP_MARKER = "org.eclipse.jface.action.GroupMarker.GroupMarker(String)"; //$NON-NLS-1$
 
@@ -220,6 +227,10 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 		display.addFilter(SWT.Hide, rendererFilter);
 		display.addFilter(SWT.Dispose, rendererFilter);
 		context.set(MenuManagerRendererFilter.class, rendererFilter);
+		MenuManagerEventHelper.showHelper = ContextInjectionFactory.make(
+				MenuManagerShowProcessor.class, context);
+		MenuManagerEventHelper.hideHelper = ContextInjectionFactory.make(
+				MenuManagerHideProcessor.class, context);
 
 	}
 
@@ -229,6 +240,13 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 		eventBroker.unsubscribe(selectionUpdater);
 		eventBroker.unsubscribe(enabledUpdater);
 		eventBroker.unsubscribe(toBeRenderedUpdater);
+
+		ContextInjectionFactory.uninject(MenuManagerEventHelper.showHelper,
+				context);
+		MenuManagerEventHelper.showHelper = null;
+		ContextInjectionFactory.uninject(MenuManagerEventHelper.hideHelper,
+				context);
+		MenuManagerEventHelper.hideHelper = null;
 
 		context.remove(MenuManagerRendererFilter.class);
 		Display display = context.get(Display.class);
@@ -306,7 +324,7 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 			newMenu.setData(menuManager);
 		}
 		if (!menuManager.getRemoveAllWhenShown()) {
-			processContributions(menuModel, menuBar,
+			processContributions(menuModel, menuModel.getElementId(), menuBar,
 					menuModel instanceof MPopupMenu);
 		}
 		if (newMenu != null) {
@@ -325,6 +343,7 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 	public void cleanUp(MMenu menuModel) {
 		Collection<ContributionRecord> vals = modelContributionToRecord
 				.values();
+		List<ContributionRecord> disposedRecords = new ArrayList<ContributionRecord>();
 		for (ContributionRecord record : vals
 				.toArray(new ContributionRecord[vals.size()])) {
 			if (record.menuModel == menuModel) {
@@ -337,7 +356,19 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 				}
 				record.generatedElements.clear();
 				record.sharedElements.clear();
+				disposedRecords.add(record);
 			}
+		}
+
+		// The cleanup() is called recursively via cleanUpCopy(), hence
+		// the need to do a separate pass to remove disposed records:
+		Iterator<Entry<MMenuElement, ContributionRecord>> iterator = modelContributionToRecord
+				.entrySet().iterator();
+		for (; iterator.hasNext();) {
+			Entry<MMenuElement, ContributionRecord> entry = iterator.next();
+			ContributionRecord record = entry.getValue();
+			if (disposedRecords.contains(record))
+				iterator.remove();
 		}
 	}
 
@@ -366,19 +397,20 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 	 * @param isMenuBar
 	 * @param isPopup
 	 */
-	public void processContributions(MMenu menuModel, boolean isMenuBar,
-			boolean isPopup) {
-		if (menuModel.getElementId() == null) {
+	public void processContributions(MMenu menuModel, String elementId,
+			boolean isMenuBar, boolean isPopup) {
+		if (elementId == null) {
 			return;
 		}
 		final ArrayList<MMenuContribution> toContribute = new ArrayList<MMenuContribution>();
 		ContributionsAnalyzer.XXXgatherMenuContributions(menuModel,
-				application.getMenuContributions(), menuModel.getElementId(),
-				toContribute, null, isPopup);
+				application.getMenuContributions(), elementId, toContribute,
+				null, isPopup);
 		generateContributions(menuModel, toContribute, isMenuBar);
 		for (MMenuElement element : menuModel.getChildren()) {
 			if (element instanceof MMenu) {
-				processContributions((MMenu) element, false, isPopup);
+				processContributions((MMenu) element, element.getElementId(),
+						false, isPopup);
 			}
 		}
 	}
@@ -437,19 +469,25 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 		if (!record.mergeIntoModel()) {
 			return false;
 		}
-		if (menuBar) {
-			final IEclipseContext parentContext = modelService
-					.getContainingContext(menuModel);
+		if (menuBar || isPartMenu(menuModel)) {
+			final IEclipseContext parentContext = getContext(menuModel);
 			parentContext.runAndTrack(new RunAndTrack() {
 				@Override
 				public boolean changed(IEclipseContext context) {
 					record.updateVisibility(parentContext.getActiveLeaf());
-					manager.update(true);
+					manager.update(false);
 					return true;
 				}
 			});
 		}
 		return true;
+	}
+
+	private boolean isPartMenu(MMenu menuModel) {
+		// don't want popup menus as their visibility does not need to be
+		// tracked by a separate RunAndTrack
+		return !(menuModel instanceof MPopupMenu)
+				&& ((EObject) menuModel).eContainer() instanceof MPart;
 	}
 
 	public ArrayList<ContributionRecord> getList(MMenuElement item) {
@@ -555,6 +593,9 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 		if (childME instanceof MRenderedMenuItem) {
 			MRenderedMenuItem itemModel = (MRenderedMenuItem) childME;
 			processRenderedItem(menuManager, itemModel);
+		} else if (childME instanceof MOpaqueMenuItem) {
+			MOpaqueMenuItem itemModel = (MOpaqueMenuItem) childME;
+			processOpaqueItem(menuManager, itemModel);
 		} else if (childME instanceof MHandledMenuItem) {
 			MHandledMenuItem itemModel = (MHandledMenuItem) childME;
 			processHandledItem(menuManager, itemModel);
@@ -570,6 +611,9 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 		} else if (childME instanceof MMenu) {
 			MMenu itemModel = (MMenu) childME;
 			processMenu(menuManager, itemModel);
+		} else if (childME instanceof MDynamicMenuContribution) {
+			MDynamicMenuContribution itemModel = (MDynamicMenuContribution) childME;
+			processDynamicMenuContribution(menuManager, itemModel);
 		}
 	}
 
@@ -586,14 +630,30 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 		Object obj = itemModel.getContributionItem();
 		if (obj instanceof IContextFunction) {
 			final IEclipseContext lclContext = getContext(itemModel);
-			ici = (IContributionItem) ((IContextFunction) obj)
-					.compute(lclContext);
+			ici = (IContributionItem) ((IContextFunction) obj).compute(
+					lclContext, null);
 			itemModel.setContributionItem(ici);
 		} else if (obj instanceof IContributionItem) {
 			ici = (IContributionItem) obj;
 		} else {
 			// TODO potentially log the state, we've got something we're not
 			// happy with
+			return;
+		}
+		ici.setVisible(itemModel.isVisible());
+		addToManager(parentManager, itemModel, ici);
+		linkModelToContribution(itemModel, ici);
+	}
+
+	void processOpaqueItem(MenuManager parentManager, MOpaqueMenuItem itemModel) {
+		IContributionItem ici = getContribution(itemModel);
+		if (ici != null) {
+			return;
+		}
+		Object obj = itemModel.getOpaqueItem();
+		if (obj instanceof IContributionItem) {
+			ici = (IContributionItem) obj;
+		} else {
 			return;
 		}
 		ici.setVisible(itemModel.isVisible());
@@ -645,6 +705,22 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 		ci.setModel(itemModel);
 		ci.setVisible(itemModel.isVisible());
 		addToManager(parentManager, itemModel, ci);
+		linkModelToContribution(itemModel, ci);
+	}
+
+	/**
+	 * @param menuManager
+	 * @param itemModel
+	 */
+	private void processDynamicMenuContribution(MenuManager menuManager,
+			MDynamicMenuContribution itemModel) {
+		IContributionItem ici = getContribution(itemModel);
+		if (ici != null) {
+			return;
+		}
+		DynamicContributionContributionItem ci = new DynamicContributionContributionItem(
+				itemModel);
+		addToManager(menuManager, itemModel, ci);
 		linkModelToContribution(itemModel, ci);
 	}
 
@@ -780,7 +856,11 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 					legacyModel.setElementId(childManager.getId());
 					legacyModel.setVisible(childManager.isVisible());
 					linkModelToManager(legacyModel, childManager);
-					modelChildren.add(dest, legacyModel);
+					if (modelChildren.size() > dest) {
+						modelChildren.add(dest, legacyModel);
+					} else {
+						modelChildren.add(legacyModel);
+					}
 					reconcileManagerToModel(childManager, legacyModel);
 				} else {
 					if (childModel instanceof MOpaqueMenu) {
@@ -794,6 +874,17 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 					} else {
 						modelChildren.add(childModel);
 					}
+					if (childModel instanceof MPopupMenu) {
+						if (((MPopupMenu) childModel).getContext() == null) {
+							IEclipseContext lclContext = getContext(menuModel);
+							if (lclContext != null) {
+								((MPopupMenu) childModel)
+										.setContext(lclContext
+												.createChild(childModel
+														.getElementId()));
+							}
+						}
+					}
 				}
 			} else if (item.isSeparator() || item.isGroupMarker()) {
 				MMenuElement menuElement = getMenuElement(item);
@@ -804,7 +895,11 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 					legacySep.setVisible(item.isVisible());
 					legacySep.setOpaqueItem(item);
 					linkModelToContribution(legacySep, item);
-					modelChildren.add(dest, legacySep);
+					if (modelChildren.size() > dest) {
+						modelChildren.add(dest, legacySep);
+					} else {
+						modelChildren.add(legacySep);
+					}
 				} else if (menuElement instanceof MOpaqueMenuSeparator) {
 					MOpaqueMenuSeparator legacySep = (MOpaqueMenuSeparator) menuElement;
 					oldSeps.remove(legacySep);
@@ -826,7 +921,11 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 					legacyItem.setVisible(item.isVisible());
 					legacyItem.setOpaqueItem(item);
 					linkModelToContribution(legacyItem, item);
-					modelChildren.add(dest, legacyItem);
+					if (modelChildren.size() > dest) {
+						modelChildren.add(dest, legacyItem);
+					} else {
+						modelChildren.add(legacyItem);
+					}
 				} else if (menuElement instanceof MOpaqueMenuItem) {
 					MOpaqueMenuItem legacyItem = (MOpaqueMenuItem) menuElement;
 					oldModelItems.remove(legacyItem);
@@ -871,14 +970,50 @@ public class MenuManagerRenderer extends SWTPartRenderer {
 	 */
 	public static void updateVisibility(MenuManager menuManager,
 			MMenuElement element, ExpressionContext evalContext) {
-		if (!(element.getVisibleWhen() instanceof MCoreExpression)) {
-			return;
+		boolean current = element.isVisible();
+		boolean visible = true;
+		boolean evaluated = false;
+		if (element.getPersistedState().get(VISIBILITY_IDENTIFIER) != null) {
+			evaluated = true;
+			String identifier = element.getPersistedState().get(
+					VISIBILITY_IDENTIFIER);
+			Object rc = evalContext.eclipseContext.get(identifier);
+			if (rc instanceof Boolean) {
+				visible = ((Boolean) rc).booleanValue();
+			}
 		}
-		boolean val = ContributionsAnalyzer.isVisible(
-				(MCoreExpression) element.getVisibleWhen(), evalContext);
-		if (val != element.isVisible()) {
-			element.setVisible(val);
+		if (visible && (element.getVisibleWhen() instanceof MCoreExpression)) {
+			evaluated = true;
+			visible = ContributionsAnalyzer.isVisible(
+					(MCoreExpression) element.getVisibleWhen(), evalContext);
+		}
+		if (evaluated && visible != current) {
+			element.setVisible(visible);
 			menuManager.markDirty();
+		}
+	}
+
+	/**
+	 * Clean dynamic menu contributions provided by
+	 * {@link MDynamicMenuContribution} application model elements
+	 * 
+	 * @param menuManager
+	 * @param menuModel
+	 * @param dump
+	 */
+	public void removeDynamicMenuContributions(MenuManager menuManager,
+			MMenu menuModel, ArrayList<MMenuElement> dump) {
+		removeMenuContributions(menuModel, dump);
+		for (MMenuElement mMenuElement : dump) {
+			IContributionItem ici = getContribution(mMenuElement);
+			if (ici == null && mMenuElement instanceof MMenu) {
+				MMenu menuElement = (MMenu) mMenuElement;
+				ici = getManager(menuElement);
+				clearModelToManager(menuElement, (MenuManager) ici);
+			} else {
+				clearModelToContribution(menuModel, ici);
+			}
+			menuManager.remove(ici);
 		}
 	}
 }

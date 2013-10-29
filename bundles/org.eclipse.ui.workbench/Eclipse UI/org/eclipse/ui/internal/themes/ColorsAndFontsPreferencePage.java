@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2011 IBM Corporation and others.
+ * Copyright (c) 2003, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -930,6 +930,7 @@ public final class ColorsAndFontsPreferencePage extends PreferencePage
 
 		tree = new FilteredTree(parent, SWT.SINGLE | SWT.H_SCROLL | SWT.V_SCROLL | SWT.BORDER,
 				filter, true);
+		tree.setQuickSelectionMode(true);
 		GridData data = new GridData(GridData.FILL_BOTH | GridData.VERTICAL_ALIGN_FILL);
 		data.widthHint = Math.max(285, convertWidthInCharsToPixels(30));
 		data.heightHint = Math.max(175, convertHeightInCharsToPixels(10));
@@ -1850,11 +1851,11 @@ public final class ColorsAndFontsPreferencePage extends PreferencePage
         if (fontDefinition != null) {
 			boolean isDefault = isDefault(fontDefinition);
 			boolean hasDefault = fontDefinition.getDefaultsTo() != null;
-            fontChangeButton.setEnabled(true);
-            fontSystemButton.setEnabled(true);
-			fontResetButton.setEnabled(!isDefault);
-			editDefaultButton.setEnabled(hasDefault && isDefault);
-			goToDefaultButton.setEnabled(hasDefault);
+			fontChangeButton.setEnabled(!fontDefinition.isOverridden());
+			fontSystemButton.setEnabled(!fontDefinition.isOverridden());
+			fontResetButton.setEnabled(!isDefault && !fontDefinition.isOverridden());
+			editDefaultButton.setEnabled(hasDefault && isDefault && !fontDefinition.isOverridden());
+			goToDefaultButton.setEnabled(hasDefault && !fontDefinition.isOverridden());
             setCurrentFont(fontDefinition);
             return;
         }
@@ -1862,11 +1863,12 @@ public final class ColorsAndFontsPreferencePage extends PreferencePage
         if (colorDefinition != null) {
 			boolean isDefault = isDefault(getSelectedColorDefinition());
 			boolean hasDefault = colorDefinition.getDefaultsTo() != null;
-            fontChangeButton.setEnabled(true);
+			fontChangeButton.setEnabled(!colorDefinition.isOverridden());
             fontSystemButton.setEnabled(false);
-			fontResetButton.setEnabled(!isDefault);
-			editDefaultButton.setEnabled(hasDefault && isDefault);
-			goToDefaultButton.setEnabled(hasDefault);
+			fontResetButton.setEnabled(!isDefault && !colorDefinition.isOverridden());
+			editDefaultButton
+					.setEnabled(hasDefault && isDefault && !colorDefinition.isOverridden());
+			goToDefaultButton.setEnabled(hasDefault && !colorDefinition.isOverridden());
             setCurrentColor(colorDefinition);
             return;
         }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2006 IBM Corporation and others.
+ * Copyright (c) 2004, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -70,14 +70,16 @@ public final class LocalResourceManager extends AbstractResourceManager {
     /* (non-Javadoc)
      * @see org.eclipse.jface.resource.ResourceManager#getDevice()
      */
-    public Device getDevice() {
+    @Override
+	public Device getDevice() {
         return parentRegistry.getDevice();
     }
     
     /* (non-Javadoc)
      * @see org.eclipse.jface.resource.AbstractResourceManager#allocate(org.eclipse.jface.resource.DeviceResourceDescriptor)
      */
-    protected Object allocate(DeviceResourceDescriptor descriptor)
+    @Override
+	protected Object allocate(DeviceResourceDescriptor descriptor)
             throws DeviceResourceException {
         return parentRegistry.create(descriptor);
     }
@@ -85,7 +87,8 @@ public final class LocalResourceManager extends AbstractResourceManager {
     /* (non-Javadoc)
      * @see org.eclipse.jface.resource.AbstractResourceManager#deallocate(java.lang.Object, org.eclipse.jface.resource.DeviceResourceDescriptor)
      */
-    protected void deallocate(Object resource,
+    @Override
+	protected void deallocate(Object resource,
             DeviceResourceDescriptor descriptor) {
         
         parentRegistry.destroy(descriptor);
@@ -94,7 +97,8 @@ public final class LocalResourceManager extends AbstractResourceManager {
     /* (non-Javadoc)
      * @see org.eclipse.jface.resource.ResourceManager#getDefaultImage()
      */
-    protected Image getDefaultImage() {
+    @Override
+	protected Image getDefaultImage() {
         return parentRegistry.getDefaultImage();
     }
 }

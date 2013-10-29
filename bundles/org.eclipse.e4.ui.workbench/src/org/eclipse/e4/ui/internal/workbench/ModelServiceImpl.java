@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2011 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,12 +16,26 @@ import java.util.List;
 import org.eclipse.core.runtime.Assert;
 import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.core.services.events.IEventBroker;
+import org.eclipse.e4.ui.model.application.MAddon;
 import org.eclipse.e4.ui.model.application.MApplication;
 import org.eclipse.e4.ui.model.application.MApplicationElement;
+import org.eclipse.e4.ui.model.application.MApplicationFactory;
+import org.eclipse.e4.ui.model.application.commands.MBindingContext;
+import org.eclipse.e4.ui.model.application.commands.MBindingTable;
+import org.eclipse.e4.ui.model.application.commands.MCategory;
+import org.eclipse.e4.ui.model.application.commands.MCommand;
+import org.eclipse.e4.ui.model.application.commands.MCommandParameter;
+import org.eclipse.e4.ui.model.application.commands.MCommandsFactory;
+import org.eclipse.e4.ui.model.application.commands.MHandler;
+import org.eclipse.e4.ui.model.application.commands.MKeyBinding;
+import org.eclipse.e4.ui.model.application.commands.MParameter;
+import org.eclipse.e4.ui.model.application.descriptor.basic.MPartDescriptor;
+import org.eclipse.e4.ui.model.application.ui.MCoreExpression;
 import org.eclipse.e4.ui.model.application.ui.MElementContainer;
 import org.eclipse.e4.ui.model.application.ui.MGenericTile;
 import org.eclipse.e4.ui.model.application.ui.MSnippetContainer;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
+import org.eclipse.e4.ui.model.application.ui.MUiFactory;
 import org.eclipse.e4.ui.model.application.ui.SideValue;
 import org.eclipse.e4.ui.model.application.ui.advanced.MAdvancedFactory;
 import org.eclipse.e4.ui.model.application.ui.advanced.MArea;
@@ -29,6 +43,8 @@ import org.eclipse.e4.ui.model.application.ui.advanced.MPerspective;
 import org.eclipse.e4.ui.model.application.ui.advanced.MPerspectiveStack;
 import org.eclipse.e4.ui.model.application.ui.advanced.MPlaceholder;
 import org.eclipse.e4.ui.model.application.ui.basic.MBasicFactory;
+import org.eclipse.e4.ui.model.application.ui.basic.MCompositePart;
+import org.eclipse.e4.ui.model.application.ui.basic.MInputPart;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.e4.ui.model.application.ui.basic.MPartSashContainer;
 import org.eclipse.e4.ui.model.application.ui.basic.MPartSashContainerElement;
@@ -38,7 +54,21 @@ import org.eclipse.e4.ui.model.application.ui.basic.MTrimmedWindow;
 import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
 import org.eclipse.e4.ui.model.application.ui.basic.MWindowElement;
 import org.eclipse.e4.ui.model.application.ui.basic.impl.BasicFactoryImpl;
+import org.eclipse.e4.ui.model.application.ui.menu.MDirectMenuItem;
+import org.eclipse.e4.ui.model.application.ui.menu.MDirectToolItem;
+import org.eclipse.e4.ui.model.application.ui.menu.MDynamicMenuContribution;
+import org.eclipse.e4.ui.model.application.ui.menu.MHandledMenuItem;
+import org.eclipse.e4.ui.model.application.ui.menu.MHandledToolItem;
+import org.eclipse.e4.ui.model.application.ui.menu.MMenu;
+import org.eclipse.e4.ui.model.application.ui.menu.MMenuContribution;
+import org.eclipse.e4.ui.model.application.ui.menu.MMenuFactory;
+import org.eclipse.e4.ui.model.application.ui.menu.MMenuSeparator;
+import org.eclipse.e4.ui.model.application.ui.menu.MPopupMenu;
+import org.eclipse.e4.ui.model.application.ui.menu.MToolBar;
+import org.eclipse.e4.ui.model.application.ui.menu.MToolBarContribution;
+import org.eclipse.e4.ui.model.application.ui.menu.MToolBarSeparator;
 import org.eclipse.e4.ui.model.application.ui.menu.MToolControl;
+import org.eclipse.e4.ui.model.application.ui.menu.MTrimContribution;
 import org.eclipse.e4.ui.model.internal.ModelUtils;
 import org.eclipse.e4.ui.workbench.IPresentationEngine;
 import org.eclipse.e4.ui.workbench.UIEvents;
@@ -56,6 +86,8 @@ import org.osgi.service.event.EventHandler;
  */
 public class ModelServiceImpl implements EModelService {
 	private static String HOSTED_ELEMENT = "HostedElement"; //$NON-NLS-1$
+
+	private IEclipseContext appContext;
 
 	// Cleans up after a hosted element is disposed
 	private EventHandler hostedElementHandler = new EventHandler() {
@@ -88,8 +120,138 @@ public class ModelServiceImpl implements EModelService {
 		if (appContext == null)
 			return;
 
+		this.appContext = appContext;
 		IEventBroker eventBroker = appContext.get(IEventBroker.class);
 		eventBroker.subscribe(UIEvents.UIElement.TOPIC_WIDGET, hostedElementHandler);
+	}
+
+	/**
+	 * @see EModelService#createModelElement(Class)
+	 * @generated
+	 */
+	@SuppressWarnings("unchecked")
+	public final <T extends MApplicationElement> T createModelElement(Class<T> elementType) {
+		// WARNING: This method is automatically generated. Do not hand modify
+		if (elementType == null) {
+			throw new NullPointerException("Argument cannot be null."); //$NON-NLS-1$
+		}
+		if (MAddon.class.equals(elementType)) {
+			return (T) MApplicationFactory.INSTANCE.createAddon();
+		}
+		if (MApplication.class.equals(elementType)) {
+			return (T) MApplicationFactory.INSTANCE.createApplication();
+		}
+		if (MArea.class.equals(elementType)) {
+			return (T) MAdvancedFactory.INSTANCE.createArea();
+		}
+		if (MBindingContext.class.equals(elementType)) {
+			return (T) MCommandsFactory.INSTANCE.createBindingContext();
+		}
+		if (MBindingTable.class.equals(elementType)) {
+			return (T) MCommandsFactory.INSTANCE.createBindingTable();
+		}
+		if (MCategory.class.equals(elementType)) {
+			return (T) MCommandsFactory.INSTANCE.createCategory();
+		}
+		if (MCommand.class.equals(elementType)) {
+			return (T) MCommandsFactory.INSTANCE.createCommand();
+		}
+		if (MCommandParameter.class.equals(elementType)) {
+			return (T) MCommandsFactory.INSTANCE.createCommandParameter();
+		}
+		if (MCompositePart.class.equals(elementType)) {
+			return (T) MBasicFactory.INSTANCE.createCompositePart();
+		}
+		if (MCoreExpression.class.equals(elementType)) {
+			return (T) MUiFactory.INSTANCE.createCoreExpression();
+		}
+		if (MDirectMenuItem.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createDirectMenuItem();
+		}
+		if (MDirectToolItem.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createDirectToolItem();
+		}
+		if (MDynamicMenuContribution.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createDynamicMenuContribution();
+		}
+		if (MHandledMenuItem.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createHandledMenuItem();
+		}
+		if (MHandledToolItem.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createHandledToolItem();
+		}
+		if (MHandler.class.equals(elementType)) {
+			return (T) MCommandsFactory.INSTANCE.createHandler();
+		}
+		if (MInputPart.class.equals(elementType)) {
+			return (T) MBasicFactory.INSTANCE.createInputPart();
+		}
+		if (MKeyBinding.class.equals(elementType)) {
+			return (T) MCommandsFactory.INSTANCE.createKeyBinding();
+		}
+		if (MMenu.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createMenu();
+		}
+		if (MMenuContribution.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createMenuContribution();
+		}
+		if (MMenuSeparator.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createMenuSeparator();
+		}
+		if (MParameter.class.equals(elementType)) {
+			return (T) MCommandsFactory.INSTANCE.createParameter();
+		}
+		if (MPart.class.equals(elementType)) {
+			return (T) MBasicFactory.INSTANCE.createPart();
+		}
+		if (MPartDescriptor.class.equals(elementType)) {
+			return (T) org.eclipse.e4.ui.model.application.descriptor.basic.MBasicFactory.INSTANCE
+					.createPartDescriptor();
+		}
+		if (MPartSashContainer.class.equals(elementType)) {
+			return (T) MBasicFactory.INSTANCE.createPartSashContainer();
+		}
+		if (MPartStack.class.equals(elementType)) {
+			return (T) MBasicFactory.INSTANCE.createPartStack();
+		}
+		if (MPerspective.class.equals(elementType)) {
+			return (T) MAdvancedFactory.INSTANCE.createPerspective();
+		}
+		if (MPerspectiveStack.class.equals(elementType)) {
+			return (T) MAdvancedFactory.INSTANCE.createPerspectiveStack();
+		}
+		if (MPlaceholder.class.equals(elementType)) {
+			return (T) MAdvancedFactory.INSTANCE.createPlaceholder();
+		}
+		if (MPopupMenu.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createPopupMenu();
+		}
+		if (MToolBar.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createToolBar();
+		}
+		if (MToolBarContribution.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createToolBarContribution();
+		}
+		if (MToolBarSeparator.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createToolBarSeparator();
+		}
+		if (MToolControl.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createToolControl();
+		}
+		if (MTrimBar.class.equals(elementType)) {
+			return (T) MBasicFactory.INSTANCE.createTrimBar();
+		}
+		if (MTrimContribution.class.equals(elementType)) {
+			return (T) MMenuFactory.INSTANCE.createTrimContribution();
+		}
+		if (MTrimmedWindow.class.equals(elementType)) {
+			return (T) MBasicFactory.INSTANCE.createTrimmedWindow();
+		}
+		if (MWindow.class.equals(elementType)) {
+			return (T) MBasicFactory.INSTANCE.createWindow();
+		}
+		throw new IllegalArgumentException(
+				"Unsupported model object type: " + elementType.getCanonicalName()); //$NON-NLS-1$
 	}
 
 	/**
@@ -512,7 +674,7 @@ public class ModelServiceImpl implements EModelService {
 	}
 
 	private void combine(MPartSashContainerElement toInsert, MPartSashContainerElement relTo,
-			MPartSashContainer newSash, boolean newFirst, int ratio) {
+			MPartSashContainer newSash, boolean newFirst, float ratio) {
 		MElementContainer<MUIElement> curParent = relTo.getParent();
 		int index = curParent.getChildren().indexOf(relTo);
 		curParent.getChildren().remove(relTo);
@@ -526,7 +688,7 @@ public class ModelServiceImpl implements EModelService {
 
 		// Set up the container data before adding the new sash to the model
 		// To raise the granularity assume 100% == 10,000
-		int adjustedPct = ratio * 100;
+		int adjustedPct = (int) (ratio * 10000);
 		toInsert.setContainerData(Integer.toString(adjustedPct));
 		relTo.setContainerData(Integer.toString(10000 - adjustedPct));
 
@@ -543,33 +705,85 @@ public class ModelServiceImpl implements EModelService {
 	 * int, int)
 	 */
 	public void insert(MPartSashContainerElement toInsert, MPartSashContainerElement relTo,
-			int where, int ratio) {
-		if (toInsert == null || relTo == null)
-			return;
+			int where, float ratio) {
+		assert (toInsert != null && relTo != null);
+		assert (ratio > 0 && ratio < 100);
 
-		// Ensure the ratio is sane
-		if (ratio == 0)
-			ratio = 1000;
-		if (ratio > 10000)
-			ratio = 9000;
+		MUIElement relToParent = relTo.getParent();
 
 		// determine insertion order
-		boolean newFirst = where == ABOVE || where == LEFT_OF;
+		boolean insertBefore = where == ABOVE || where == LEFT_OF;
+		boolean horizontal = where == LEFT_OF || where == RIGHT_OF;
 
-		// The only thing we can add sashes to is an MPartSashContainer or an MWindow so
-		// find the correct place to start the insertion
+		// Case 1: 'relTo' is already an MPSC, can we just add to it ?
+		// Case 2: relTo's parent is an MPSC, can we just add to it ?
+		// Case 3: We need to make a new Sash and replace relTo with it after 'combining' toInsert
+		// and relTo
+		if (relTo instanceof MPartSashContainer
+				&& directionsMatch((MPartSashContainer) relTo, horizontal)) {
+			MPartSashContainer psc = (MPartSashContainer) relTo;
+			int totalVisWeight = 0;
+			for (MUIElement child : psc.getChildren()) {
+				if (child.isToBeRendered())
+					totalVisWeight += getWeight(child);
+			}
+			int insertWeight = (int) ((totalVisWeight * ratio) / (1 - ratio));
+			toInsert.setContainerData(Integer.toString(insertWeight));
+			if (insertBefore)
+				psc.getChildren().add(0, toInsert);
+			else
+				psc.getChildren().add(toInsert);
+		} else if (relToParent instanceof MPartSashContainer && !(relToParent instanceof MArea)
+				&& directionsMatch((MPartSashContainer) relToParent, horizontal)) {
+			MPartSashContainer psc = (MPartSashContainer) relToParent;
+			int relToIndex = psc.getChildren().indexOf(relTo);
+
+			int relToWeight = getWeight(relTo);
+			int insertWeight = (int) (relToWeight * ratio);
+			toInsert.setContainerData(Integer.toString(insertWeight));
+			relTo.setContainerData(Integer.toString(relToWeight - insertWeight));
+
+			if (insertBefore)
+				psc.getChildren().add(relToIndex, toInsert);
+			else {
+				int insertIndex = relToIndex + 1;
+				if (insertIndex < psc.getChildren().size())
+					psc.getChildren().add(insertIndex, toInsert);
+				else
+					psc.getChildren().add(toInsert);
+			}
+		} else {
+			MPartSashContainer newSash = BasicFactoryImpl.eINSTANCE.createPartSashContainer();
+			newSash.setHorizontal(horizontal);
+			
+			// Maintain the existing weight in the new sash
+			newSash.setContainerData(relTo.getContainerData());
+			
+			combine(toInsert, relTo, newSash, insertBefore, ratio);
+		}
+
+		if (relToParent != null)
+			return;
+
+		// We're either relative to an MPSC or to some
+		// The only thing we can add sashes to is an MPartSashContainer, an MWindow or an
+		// MPerspective find the correct place to start the insertion
 		MUIElement insertRoot = relTo.getParent();
+		if (insertRoot instanceof MPerspective)
+			insertRoot = relTo;
 		while (insertRoot != null && !(insertRoot instanceof MWindow)
+				&& !(insertRoot instanceof MPerspective)
 				&& !(insertRoot instanceof MPartSashContainer)) {
 			relTo = (MPartSashContainerElement) insertRoot;
 			insertRoot = insertRoot.getParent();
 		}
 
-		if (insertRoot instanceof MWindow || insertRoot instanceof MArea) {
+		if (insertRoot instanceof MWindow || insertRoot instanceof MArea
+				|| insertRoot instanceof MPerspective) {
 			// OK, we're certainly going to need a new sash
 			MPartSashContainer newSash = BasicFactoryImpl.eINSTANCE.createPartSashContainer();
 			newSash.setHorizontal(where == LEFT_OF || where == RIGHT_OF);
-			combine(toInsert, relTo, newSash, newFirst, ratio);
+			combine(toInsert, relTo, newSash, insertBefore, ratio);
 		} else if (insertRoot instanceof MGenericTile<?>) {
 			MGenericTile<MUIElement> curTile = (MGenericTile<MUIElement>) insertRoot;
 
@@ -578,23 +792,23 @@ public class ModelServiceImpl implements EModelService {
 				MPartSashContainer newSash = BasicFactoryImpl.eINSTANCE.createPartSashContainer();
 				newSash.setHorizontal(false);
 				newSash.setContainerData(relTo.getContainerData());
-				combine(toInsert, relTo, newSash, newFirst, ratio);
+				combine(toInsert, relTo, newSash, insertBefore, ratio);
 			} else if (!curTile.isHorizontal() && (where == LEFT_OF || where == RIGHT_OF)) {
 				MPartSashContainer newSash = BasicFactoryImpl.eINSTANCE.createPartSashContainer();
 				newSash.setHorizontal(true);
 				newSash.setContainerData(relTo.getContainerData());
-				combine(toInsert, relTo, newSash, newFirst, ratio);
+				combine(toInsert, relTo, newSash, insertBefore, ratio);
 			} else {
 				// We just need to add to the existing sash
 				int relToIndex = relTo.getParent().getChildren().indexOf(relTo);
-				if (newFirst) {
+				if (insertBefore) {
 					curTile.getChildren().add(relToIndex, toInsert);
 				} else {
 					curTile.getChildren().add(relToIndex + 1, toInsert);
 				}
 
 				// Adjust the sash weights by taking the ratio
-				int relToWeight = 100;
+				int relToWeight = 10000;
 				if (relTo.getContainerData() != null) {
 					try {
 						relToWeight = Integer.parseInt(relTo.getContainerData());
@@ -609,6 +823,22 @@ public class ModelServiceImpl implements EModelService {
 		}
 	}
 
+	private int getWeight(MUIElement element) {
+		int relToWeight = 10000;
+		if (element.getContainerData() != null) {
+			try {
+				relToWeight = Integer.parseInt(element.getContainerData());
+			} catch (NumberFormatException e) {
+			}
+		}
+		return relToWeight;
+	}
+
+	private boolean directionsMatch(MPartSashContainer psc, boolean horizontal) {
+		boolean pscHorizontal = psc.isHorizontal();
+		return (pscHorizontal && horizontal) || (!pscHorizontal && !horizontal);
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -617,26 +847,13 @@ public class ModelServiceImpl implements EModelService {
 	 * .MPartSashContainerElement)
 	 */
 	public void detach(MPartSashContainerElement element, int x, int y, int width, int height) {
-		// Determine the correct parent for the new window
-		MUIElement curParent = element.getParent();
-		MUIElement current = element;
-		MWindow window = getTopLevelWindowFor(element);
-		while (!(curParent instanceof MPerspective) && !(curParent instanceof MWindow)) {
-			if (curParent == null) {
-				// no parent, maybe we're being represented by a placeholder
-				current = findPlaceholderFor(window, current);
-				if (current == null) {
-					return; // log??
-				}
+		// If we're showing through a placehoilder then detach it...
+		if (element.getCurSharedRef() != null)
+			element = element.getCurSharedRef();
 
-				curParent = current.getParent();
-				if (curParent == null) {
-					return; // log??
-				}
-			}
-			current = curParent;
-			curParent = current.getParent();
-		}
+		// Determine the correct parent for the new window
+		MWindow window = getTopLevelWindowFor(element);
+		MPerspective thePersp = getPerspectiveFor(element);
 
 		MTrimmedWindow newWindow = MBasicFactory.INSTANCE.createTrimmedWindow();
 
@@ -650,11 +867,10 @@ public class ModelServiceImpl implements EModelService {
 		MWindowElement uiRoot = wrapElementForWindow(element);
 		newWindow.getChildren().add(uiRoot);
 
-		if (curParent instanceof MPerspective) {
-			MPerspective persp = (MPerspective) curParent;
-			persp.getWindows().add(newWindow);
-		} else if (curParent instanceof MWindow) {
-			((MWindow) curParent).getWindows().add(newWindow);
+		if (thePersp != null) {
+			thePersp.getWindows().add(newWindow);
+		} else if (window != null) {
+			window.getWindows().add(newWindow);
 		}
 	}
 
@@ -901,6 +1117,10 @@ public class ModelServiceImpl implements EModelService {
 		if (element == null)
 			return NOT_IN_UI;
 
+		// If the element is shared then use its current placeholder
+		if (element.getCurSharedRef() != null)
+			element = element.getCurSharedRef();
+
 		MUIElement curElement = element;
 		while (curElement != null) {
 			MUIElement parent = curElement.getParent();
@@ -945,6 +1165,26 @@ public class ModelServiceImpl implements EModelService {
 		}
 
 		return NOT_IN_UI;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.eclipse.e4.ui.workbench.modeling.EModelService#getPartDescriptor(java.lang.String)
+	 */
+	public MPartDescriptor getPartDescriptor(String id) {
+		MApplication application = appContext.get(MApplication.class);
+
+		// If the id contains a ':' use the part before it as the descriptor id
+		int colonIndex = id == null ? -1 : id.indexOf(':');
+		String descId = colonIndex == -1 ? id : id.substring(0, colonIndex);
+
+		for (MPartDescriptor descriptor : application.getDescriptors()) {
+			if (descriptor.getElementId().equals(descId)) {
+				return descriptor;
+			}
+		}
+		return null;
 	}
 
 	/*

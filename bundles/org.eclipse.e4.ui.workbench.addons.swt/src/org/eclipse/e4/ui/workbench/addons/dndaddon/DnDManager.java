@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2011 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -18,16 +18,20 @@ import org.eclipse.e4.ui.internal.workbench.swt.AbstractPartRenderer;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.application.ui.basic.MPartStack;
 import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
-import org.eclipse.e4.ui.widgets.CTabFolder;
-import org.eclipse.e4.ui.widgets.CTabItem;
+import org.eclipse.e4.ui.services.IStylingEngine;
+import org.eclipse.e4.ui.widgets.ImageBasedFrame;
 import org.eclipse.e4.ui.workbench.IPresentationEngine;
 import org.eclipse.e4.ui.workbench.UIEvents;
 import org.eclipse.e4.ui.workbench.modeling.EModelService;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabFolder;
+import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.events.DisposeEvent;
 import org.eclipse.swt.events.DisposeListener;
 import org.eclipse.swt.events.DragDetectEvent;
 import org.eclipse.swt.events.DragDetectListener;
+import org.eclipse.swt.events.KeyEvent;
+import org.eclipse.swt.events.KeyListener;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.events.PaintListener;
 import org.eclipse.swt.graphics.Cursor;
@@ -65,9 +69,29 @@ class DnDManager {
 	private Control dragCtrl;
 
 	private Tracker tracker;
+	boolean dragging = false;
 
 	private Shell overlayFrame;
 	private List<Rectangle> frames = new ArrayList<Rectangle>();
+
+	DragDetectListener dragDetector = new DragDetectListener() {
+		public void dragDetected(DragDetectEvent e) {
+			if (dragging || e.widget.isDisposed())
+				return;
+
+			info.update(e);
+			dragAgent = getDragAgent(info);
+			if (dragAgent != null) {
+				try {
+					dragging = true;
+					isModified = (e.stateMask & SWT.MOD1) != 0;
+					startDrag();
+				} finally {
+					dragging = false;
+				}
+			}
+		}
+	};
 
 	public void addFrame(Rectangle newRect) {
 		frames.add(newRect);
@@ -76,6 +100,8 @@ class DnDManager {
 
 	private List<Image> images = new ArrayList<Image>();
 	private List<Rectangle> imageRects = new ArrayList<Rectangle>();
+
+	protected boolean isModified;
 
 	public void addImage(Rectangle imageRect, Image image) {
 		imageRects.add(imageRect);
@@ -87,38 +113,50 @@ class DnDManager {
 		dragWindow = topLevelWindow;
 		info = new DnDInfo(topLevelWindow);
 
+		// Dragging stacks and parts
 		dragAgents.add(new PartDragAgent(this));
 
 		dropAgents.add(new StackDropAgent(this));
 		dropAgents.add(new SplitDropAgent(this));
 		dropAgents.add(new DetachedDropAgent(this));
 
+		// dragging trim
+		dragAgents.add(new IBFDragAgent(this));
+		dropAgents.add(new TrimDropAgent(this));
+
 		// Register a 'dragDetect' against any stacks that get created
-		IEventBroker eventBroker = topLevelWindow.getContext().get(IEventBroker.class);
-		EventHandler stackWidgetHandler = new EventHandler() {
-			public void handleEvent(org.osgi.service.event.Event event) {
-				// Ensure that this event is for a MPartSashContainer
-				MUIElement element = (MUIElement) event.getProperty(UIEvents.EventTags.ELEMENT);
-				if (!(element instanceof MPartStack)
-						|| !(element.getWidget() instanceof CTabFolder))
-					return;
-
-				CTabFolder ctf = (CTabFolder) element.getWidget();
-				ctf.addDragDetectListener(new DragDetectListener() {
-					public void dragDetected(DragDetectEvent e) {
-						startDrag(e);
-					}
-				});
-			}
-		};
-
-		eventBroker.subscribe(UIEvents.UIElement.TOPIC_WIDGET, stackWidgetHandler);
+		hookWidgets();
 
 		getDragShell().addDisposeListener(new DisposeListener() {
 			public void widgetDisposed(DisposeEvent e) {
 				dispose();
 			}
 		});
+	}
+
+	/**
+	 * Do any widget specific logic hookup. We should break the model generic logic away from the
+	 * specific platform by moving this code into an SWT-specific subclass
+	 */
+	private void hookWidgets() {
+		EventHandler stackWidgetHandler = new EventHandler() {
+			public void handleEvent(org.osgi.service.event.Event event) {
+				MUIElement element = (MUIElement) event.getProperty(UIEvents.EventTags.ELEMENT);
+
+				// Listen for drags starting in CTabFolders
+				if (element.getWidget() instanceof CTabFolder
+						|| element.getWidget() instanceof ImageBasedFrame) {
+					Control ctrl = (Control) element.getWidget();
+
+					// Ensure there's only one drag detect listener per ctrl
+					ctrl.removeDragDetectListener(dragDetector);
+					ctrl.addDragDetectListener(dragDetector);
+				}
+			}
+		};
+
+		IEventBroker eventBroker = dragWindow.getContext().get(IEventBroker.class);
+		eventBroker.subscribe(UIEvents.UIElement.TOPIC_WIDGET, stackWidgetHandler);
 	}
 
 	public MWindow getDragWindow() {
@@ -135,53 +173,49 @@ class DnDManager {
 
 	protected void dispose() {
 		clearOverlay();
+
 		if (overlayFrame != null && !overlayFrame.isDisposed())
 			overlayFrame.dispose();
 		overlayFrame = null;
 	}
 
-	protected void startDrag(DragDetectEvent e) {
-		info.update(e);
-		dragAgent = getDragAgent(info);
-		if (dragAgent == null)
-			return;
+	private void track() {
+		Display.getCurrent().syncExec(new Runnable() {
+			public void run() {
+				info.update();
+				dragAgent.track(info);
 
+				// Hack: Spin the event loop
+				update();
+			}
+		});
+	}
+
+	protected void startDrag() {
+		// Create a new tracker for this drag instance
 		tracker = new Tracker(Display.getCurrent(), SWT.NULL);
 		tracker.setStippled(true);
+		setRectangle(offScreenRect);
+
+		tracker.addKeyListener(new KeyListener() {
+			public void keyReleased(KeyEvent e) {
+				if (e.keyCode == SWT.MOD1) {
+					isModified = false;
+					track();
+				}
+			}
+
+			public void keyPressed(KeyEvent e) {
+				if (e.keyCode == SWT.MOD1) {
+					isModified = true;
+					track();
+				}
+			}
+		});
 
 		tracker.addListener(SWT.Move, new Listener() {
 			public void handleEvent(final Event event) {
-				Display.getCurrent().syncExec(new Runnable() {
-					public void run() {
-						info.update();
-
-						DropAgent curAgent = dropAgent;
-
-						// Re-use the same dropAgent until it returns 'false' from track
-						if (dropAgent != null)
-							dropAgent = dropAgent.track(dragAgent.dragElement, info) ? dropAgent
-									: null;
-
-						// If we don't have a drop agent currently try to get one
-						if (dropAgent == null) {
-							if (curAgent != null)
-								curAgent.dragLeave(dragAgent.dragElement, info);
-
-							dropAgent = getDropAgent(dragAgent.dragElement, info);
-
-							if (dropAgent != null)
-								dropAgent.dragEnter(dragAgent.dragElement, info);
-							else {
-								setCursor(Display.getCurrent().getSystemCursor(SWT.CURSOR_NO));
-								setRectangle(offScreenRect);
-							}
-						}
-
-						// Hack: Spin the event loop to allow the model and its renderers to catch
-						// up
-						update();
-					}
-				});
+				track();
 			}
 		});
 
@@ -190,11 +224,12 @@ class DnDManager {
 		getDragShell().setCapture(true);
 
 		try {
-			dragAgent.dragStart(dragAgent.dragElement, info);
-			dropAgent = getDropAgent(dragAgent.dragElement, info);
+			dragAgent.dragStart(info);
 
 			// Run tracker until mouse up occurs or escape key pressed.
 			boolean performDrop = tracker.open();
+
+			// clean up
 			finishDrag(performDrop);
 		} finally {
 			getDragShell().setCursor(null);
@@ -203,8 +238,6 @@ class DnDManager {
 	}
 
 	public void update() {
-		while (Display.getCurrent().readAndDispatch())
-			;
 		Display.getCurrent().update();
 	}
 
@@ -212,34 +245,27 @@ class DnDManager {
 	 * @param performDrop
 	 */
 	private void finishDrag(boolean performDrop) {
+		// Tear down any feedback
+		if (tracker != null && !tracker.isDisposed()) {
+			tracker.dispose();
+			tracker = null;
+		}
+
+		if (overlayFrame != null) {
+			overlayFrame.dispose();
+			overlayFrame = null;
+		}
+
+		if (dragHost != null) {
+			dragHost.dispose();
+			dragHost = null;
+		}
+
 		// Perform either drop or cancel
 		try {
-			boolean isNoDrop = getDragShell().getCursor() == Display.getCurrent().getSystemCursor(
-					SWT.CURSOR_NO);
-			if (performDrop && dropAgent != null && !isNoDrop) {
-				dropAgent.drop(dragAgent.dragElement, info);
-			} else {
-				dragAgent.cancelDrag();
-			}
-			dragAgent.dragFinished();
+			dragAgent.dragFinished(performDrop, info);
 		} finally {
-			if (tracker != null && !tracker.isDisposed()) {
-				tracker.dispose();
-				tracker = null;
-			}
-
-			if (overlayFrame != null) {
-				overlayFrame.dispose();
-				overlayFrame = null;
-			}
-
-			if (dragHost != null) {
-				dragHost.dispose();
-				dragHost = null;
-			}
-
 			dragAgent = null;
-			dropAgent = null;
 		}
 	}
 
@@ -361,6 +387,10 @@ class DnDManager {
 			overlayFrame.setBackground(Display.getCurrent().getSystemColor(SWT.COLOR_DARK_GREEN));
 			overlayFrame.setAlpha(150);
 
+			IStylingEngine stylingEngine = dragWindow.getContext().get(IStylingEngine.class);
+			stylingEngine.setClassname(overlayFrame, "DragFeedback");
+			stylingEngine.style(overlayFrame);
+
 			overlayFrame.addPaintListener(new PaintListener() {
 				public void paintControl(PaintEvent e) {
 					for (int i = 0; i < images.size(); i++) {
@@ -413,9 +443,6 @@ class DnDManager {
 		overlayFrame.setVisible(true);
 	}
 
-	/**
-	 * @return
-	 */
 	private Rectangle getOverlayBounds() {
 		Rectangle bounds = null;
 		for (Rectangle fr : frames) {
@@ -473,7 +500,7 @@ class DnDManager {
 		return null;
 	}
 
-	private DropAgent getDropAgent(MUIElement dragElement, DnDInfo info) {
+	public DropAgent getDropAgent(MUIElement dragElement, DnDInfo info) {
 		for (DropAgent agent : dropAgents) {
 			if (agent.canDrop(dragElement, info))
 				return agent;
@@ -482,7 +509,7 @@ class DnDManager {
 	}
 
 	/**
-	 * @return
+	 * @return Return the feedback style
 	 */
 	public int getFeedbackStyle() {
 		return feedbackStyle;

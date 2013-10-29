@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2008 IBM Corporation and others.
+ * Copyright (c) 2005, 2010 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -123,11 +123,13 @@ public class DetailedProgressViewer extends AbstractProgressViewer {
 
 		noEntryArea = new Composite(scrolled, SWT.NONE);
 		noEntryArea.setLayout(new GridLayout());
+		noEntryArea.setBackground(noEntryArea.getDisplay()
+				.getSystemColor(SWT.COLOR_LIST_BACKGROUND));
 
 		Text noEntryLabel = new Text(noEntryArea, SWT.SINGLE);
 		noEntryLabel.setText(ProgressMessages.ProgressView_NoOperations);
 		noEntryLabel.setBackground(noEntryArea.getDisplay().getSystemColor(
-				SWT.COLOR_WIDGET_BACKGROUND));
+				SWT.COLOR_LIST_BACKGROUND));
 		GridData textData = new GridData(GridData.VERTICAL_ALIGN_BEGINNING);
 		noEntryLabel.setLayoutData(textData);
 		noEntryLabel.setEditable(false);

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2006 IBM Corporation and others.
+ * Copyright (c) 2004, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -39,7 +39,8 @@ public abstract class FontDescriptor extends DeviceResourceDescriptor {
      * the font's constructor when it was first created.
      * @return a newly created FontDescriptor.
      */
-    public static FontDescriptor createFrom(Font font, Device originalDevice) {
+    @Deprecated
+	public static FontDescriptor createFrom(Font font, Device originalDevice) {
         return new ArrayFontDescriptor(font);
     }
     
@@ -281,14 +282,16 @@ public abstract class FontDescriptor extends DeviceResourceDescriptor {
     /* (non-Javadoc)
      * @see org.eclipse.jface.resource.DeviceResourceDescriptor#create(org.eclipse.swt.graphics.Device)
      */
-    public final Object createResource(Device device) throws DeviceResourceException {
+    @Override
+	public final Object createResource(Device device) throws DeviceResourceException {
         return createFont(device);
     }
     
     /* (non-Javadoc)
      * @see org.eclipse.jface.resource.DeviceResourceDescriptor#destroy(java.lang.Object)
      */
-    public final void destroyResource(Object previouslyCreatedObject) {
+    @Override
+	public final void destroyResource(Object previouslyCreatedObject) {
         destroyFont((Font)previouslyCreatedObject);
     }
 }

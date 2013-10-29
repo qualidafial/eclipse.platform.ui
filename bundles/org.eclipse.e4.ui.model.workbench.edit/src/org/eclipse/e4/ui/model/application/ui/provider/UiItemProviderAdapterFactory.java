@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2008 IBM Corporation and others.
+ * Copyright (c) 2008, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -97,29 +97,6 @@ public class UiItemProviderAdapterFactory extends UiAdapterFactory implements Co
 		}
 
 		return coreExpressionItemProvider;
-	}
-
-	/**
-	 * This keeps track of the one adapter used for all {@link org.eclipse.e4.ui.model.application.ui.MSnippetContainer} instances.
-	 * <!-- begin-user-doc -->
-	 * <!-- end-user-doc -->
-	 * @generated
-	 */
-	protected SnippetContainerItemProvider snippetContainerItemProvider;
-
-	/**
-	 * This creates an adapter for a {@link org.eclipse.e4.ui.model.application.ui.MSnippetContainer}.
-	 * <!-- begin-user-doc -->
-	 * <!-- end-user-doc -->
-	 * @generated
-	 */
-	@Override
-	public Adapter createSnippetContainerAdapter() {
-		if (snippetContainerItemProvider == null) {
-			snippetContainerItemProvider = new SnippetContainerItemProvider(this);
-		}
-
-		return snippetContainerItemProvider;
 	}
 
 	/**
@@ -222,7 +199,6 @@ public class UiItemProviderAdapterFactory extends UiAdapterFactory implements Co
 	 */
 	public void dispose() {
 		if (coreExpressionItemProvider != null) coreExpressionItemProvider.dispose();
-		if (snippetContainerItemProvider != null) snippetContainerItemProvider.dispose();
 	}
 
 }

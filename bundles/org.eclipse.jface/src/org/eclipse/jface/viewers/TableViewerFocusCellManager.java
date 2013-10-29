@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2010 IBM Corporation and others.
+ * Copyright (c) 2007, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -65,6 +65,7 @@ public class TableViewerFocusCellManager extends SWTFocusCellManager {
 		super(viewer, focusDrawingDelegate, navigationStrategy);
 	}
 
+	@Override
 	ViewerCell getInitialFocusCell() {
 		Table table = (Table) getViewer().getControl();
 
@@ -90,6 +91,7 @@ public class TableViewerFocusCellManager extends SWTFocusCellManager {
 		return row.getBounds(colIndex).x >= clientArea.x;
 	}
 
+	@Override
 	public ViewerCell getFocusCell() {
 		ViewerCell cell = super.getFocusCell();
 		Table t = (Table) getViewer().getControl();

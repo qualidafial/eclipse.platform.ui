@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2008 IBM Corporation and others.
+ * Copyright (c) 2007, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,7 +14,6 @@ package org.eclipse.ui.internal.menus;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-
 import org.eclipse.core.expressions.IEvaluationContext;
 import org.eclipse.swt.events.DisposeEvent;
 import org.eclipse.swt.events.DisposeListener;
@@ -69,6 +68,10 @@ public class FocusControlSourceProvider extends AbstractSourceProvider
 			disposeListener = new DisposeListener() {
 				public void widgetDisposed(DisposeEvent e) {
 					controlToId.remove(e.widget);
+					if (currentControl == e.widget) {
+						focusIn(null);
+
+					}
 				}
 			};
 		}
@@ -120,6 +123,10 @@ public class FocusControlSourceProvider extends AbstractSourceProvider
 	 * @see org.eclipse.ui.menus.IFocusService#removeTrackerFor(org.eclipse.swt.widgets.Control)
 	 */
 	public void removeFocusTracker(Control control) {
+		if (controlToId == null) {
+			// bug 396909: avoid NPEs if the service has already been disposed
+			return;
+		}
 		controlToId.remove(control);
 		if (control.isDisposed()) {
 			return;

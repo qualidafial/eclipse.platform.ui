@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2006 IBM Corporation and others.
+ * Copyright (c) 2004, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -138,7 +138,7 @@ public final class Context extends NamedHandleObject implements Comparable {
             final String parentId) {
         if (name == null) {
             throw new NullPointerException(
-                    "The name of a scheme cannot be null"); //$NON-NLS-1$
+                    "The name of a context cannot be null"); //$NON-NLS-1$
         }
 
         final boolean definedChanged = !this.defined;

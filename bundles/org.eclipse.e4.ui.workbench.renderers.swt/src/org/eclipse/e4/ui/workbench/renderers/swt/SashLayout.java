@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2013 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.e4.ui.workbench.renderers.swt;
 
 import java.util.ArrayList;
@@ -51,6 +61,8 @@ public class SashLayout extends Layout {
 	boolean draggingSashes = false;
 	List<SashRect> sashesToDrag;
 
+	public boolean layoutUpdateInProgress = false;
+
 	public SashLayout(final Composite host, MUIElement root) {
 		this.root = root;
 		this.host = host;
@@ -68,7 +80,7 @@ public class SashLayout extends Layout {
 		});
 
 		host.addMouseMoveListener(new MouseMoveListener() {
-			public void mouseMove(MouseEvent e) {
+			public void mouseMove(final MouseEvent e) {
 				if (!draggingSashes) {
 					// Set the cursor feedback
 					List<SashRect> sashList = getSashRects(e.x, e.y);
@@ -87,9 +99,14 @@ public class SashLayout extends Layout {
 								SWT.CURSOR_SIZEALL));
 					}
 				} else {
-					adjustWeights(sashesToDrag, e.x, e.y);
-					host.layout();
-					host.update();
+					try {
+						layoutUpdateInProgress = true;
+						adjustWeights(sashesToDrag, e.x, e.y);
+						host.layout();
+						host.update();
+					} finally {
+						layoutUpdateInProgress = false;
+					}
 				}
 			}
 		});
@@ -133,7 +150,6 @@ public class SashLayout extends Layout {
 
 	public void setRootElemenr(MUIElement newRoot) {
 		root = newRoot;
-		host.layout(null, SWT.DEFER);
 	}
 
 	@Override
@@ -203,7 +219,7 @@ public class SashLayout extends Layout {
 	}
 
 	private Rectangle getRectangle(MUIElement element) {
-		if (element instanceof MGenericTile<?>)
+		if (element.getWidget() instanceof Rectangle)
 			return (Rectangle) element.getWidget();
 		else if (element.getWidget() instanceof Control)
 			return ((Control) (element.getWidget())).getBounds();
@@ -322,15 +338,14 @@ public class SashLayout extends Layout {
 	private static int getWeight(MUIElement element) {
 		String info = element.getContainerData();
 		if (info == null || info.length() == 0) {
-			element.setContainerData(Integer.toString(100));
-			info = element.getContainerData();
+			return 0;
 		}
 
 		try {
 			int value = Integer.parseInt(info);
 			return value;
 		} catch (NumberFormatException e) {
-			return 500;
+			return 0;
 		}
 	}
 }

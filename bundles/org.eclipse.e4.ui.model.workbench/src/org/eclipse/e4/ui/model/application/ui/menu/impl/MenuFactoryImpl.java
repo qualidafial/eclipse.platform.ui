@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2008 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,6 +10,7 @@
  */
 package org.eclipse.e4.ui.model.application.ui.menu.impl;
 
+import org.eclipse.e4.ui.model.application.ui.menu.*;
 import org.eclipse.e4.ui.model.application.ui.menu.ItemType;
 import org.eclipse.e4.ui.model.application.ui.menu.MDirectMenuItem;
 import org.eclipse.e4.ui.model.application.ui.menu.MDirectToolItem;
@@ -62,7 +63,7 @@ public class MenuFactoryImpl extends EFactoryImpl implements MMenuFactory {
 	 */
 	public static MenuFactoryImpl init() {
 		try {
-			MenuFactoryImpl theMenuFactory = (MenuFactoryImpl)EPackage.Registry.INSTANCE.getEFactory("http://www.eclipse.org/ui/2010/UIModel/application/ui/menu"); //$NON-NLS-1$ 
+			MenuFactoryImpl theMenuFactory = (MenuFactoryImpl)EPackage.Registry.INSTANCE.getEFactory(MenuPackageImpl.eNS_URI);
 			if (theMenuFactory != null) {
 				return theMenuFactory;
 			}
@@ -111,6 +112,7 @@ public class MenuFactoryImpl extends EFactoryImpl implements MMenuFactory {
 			case MenuPackageImpl.OPAQUE_MENU_ITEM: return (EObject)createOpaqueMenuItem();
 			case MenuPackageImpl.OPAQUE_MENU_SEPARATOR: return (EObject)createOpaqueMenuSeparator();
 			case MenuPackageImpl.OPAQUE_MENU: return (EObject)createOpaqueMenu();
+			case MenuPackageImpl.DYNAMIC_MENU_CONTRIBUTION: return (EObject)createDynamicMenuContribution();
 			default:
 				throw new IllegalArgumentException("The class '" + eClass.getName() + "' is not a valid classifier"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
@@ -344,6 +346,16 @@ public class MenuFactoryImpl extends EFactoryImpl implements MMenuFactory {
 	public MOpaqueMenu createOpaqueMenu() {
 		OpaqueMenuImpl opaqueMenu = new OpaqueMenuImpl();
 		return opaqueMenu;
+	}
+
+	/**
+	 * <!-- begin-user-doc -->
+	 * <!-- end-user-doc -->
+	 * @generated
+	 */
+	public MDynamicMenuContribution createDynamicMenuContribution() {
+		DynamicMenuContributionImpl dynamicMenuContribution = new DynamicMenuContributionImpl();
+		return dynamicMenuContribution;
 	}
 
 	/**

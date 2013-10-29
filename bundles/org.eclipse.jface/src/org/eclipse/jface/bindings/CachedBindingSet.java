@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2010 IBM Corporation and others.
+ * Copyright (c) 2004, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -210,6 +210,7 @@ final class CachedBindingSet {
 	 *         <code>CachedBindingSet</code> and have the same values for all
 	 *         of their properties; <code>false</code> otherwise.
 	 */
+	@Override
 	public final boolean equals(final Object object) {
 		if (!(object instanceof CachedBindingSet)) {
 			return false;
@@ -286,6 +287,7 @@ final class CachedBindingSet {
 	 * 
 	 * @return The hash code for this cached binding set.
 	 */
+	@Override
 	public final int hashCode() {
 		if (!hashCodeComputed) {
 			hashCode = HASH_INITIAL;

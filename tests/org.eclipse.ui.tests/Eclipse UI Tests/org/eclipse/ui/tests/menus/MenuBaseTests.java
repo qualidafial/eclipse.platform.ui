@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2008 IBM Corporation and others.
+ * Copyright (c) 2006, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,7 +13,9 @@ package org.eclipse.ui.tests.menus;
 
 import org.eclipse.jface.action.IContributionItem;
 import org.eclipse.jface.action.MenuManager;
-import org.eclipse.swt.widgets.Decorations;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.tests.menus.DeclaredProgrammaticFactory.MyItem;
@@ -69,6 +71,7 @@ public class MenuBaseTests extends MenuTestCase {
 			"Inserted &Before",
 			"",
 			"Inserted &After",
+			"Parameter &Cmd",
 			"Dynamic Item 1",
 			"Dynamic Item 2",
 			"Dynamic Menu",
@@ -112,14 +115,20 @@ public class MenuBaseTests extends MenuTestCase {
 		Shell shell = window.getShell();
 
 		// Test the initial menu creation
-		manager.createMenuBar((Decorations)shell);
-		MenuItem[] menuItems = manager.getMenu().getItems();
+		final Menu menuBar = manager.createContextMenu(shell);
+		Event e = new Event();
+		e.type = SWT.Show;
+		e.widget = menuBar;
+		menuBar.notifyListeners(SWT.Show, e);
+		
+		MenuItem[] menuItems = menuBar.getItems();
 		
 		// NOTE: Uncomment to print the info needed to update the 'expected'
 		// arrays
-//		printIds(items);
-//		printClasses(items);
-//		printMenuItemLabels(menuItems);
+		IContributionItem[] items = manager.getItems();
+		printIds(items);
+		printClasses(items);
+		printMenuItemLabels(menuItems);
 		
 		// Correct number of items?
 		assertEquals("createMenuBar: Bad count", expectedMenuItemLabels.length, menuItems.length);

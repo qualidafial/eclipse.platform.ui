@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008 Angelo Zerr and others.
+ * Copyright (c) 2008, 2012 Angelo Zerr and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -56,16 +56,15 @@ public abstract class AbstractCSSPropertyHandlerProvider implements
 			String pseudo) {
 		String propertyValue = engine.retrieveCSSProperty(stylableElement,
 				propertyName, pseudo);
-		StringBuffer style = null;
-		// if (propertyValue != null) {
-		if (style == null)
-			style = new StringBuffer();
+		if (propertyValue == null) {
+			return null;
+		}
+		StringBuffer style = new StringBuffer();
 		style.append(propertyName);
 		style.append(":");
 		style.append(propertyValue);
 		style.append(";");
-		// }
-		return (style == null ? null : style.toString());
+		return style.toString();
 	}
 
 	/**

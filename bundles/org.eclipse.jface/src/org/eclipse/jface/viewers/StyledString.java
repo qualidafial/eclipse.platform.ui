@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2009 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -147,6 +147,7 @@ public class StyledString {
 	 * 
 	 * @return the current string of this {@link StyledString}.
 	 */
+	@Override
 	public String toString() {
 		return getString();
 	}
@@ -504,6 +505,7 @@ public class StyledString {
 			this.style = style;
 		}
 
+		@Override
 		public String toString() {
 			return "Offset " + offset + ", style: " + style; //$NON-NLS-1$//$NON-NLS-2$
 		}
@@ -520,6 +522,7 @@ public class StyledString {
 			return (StyleRun) get(index);
 		}
 
+		@Override
 		public void removeRange(int fromIndex, int toIndex) {
 			super.removeRange(fromIndex, toIndex);
 		}
@@ -535,6 +538,7 @@ public class StyledString {
 			fBackgroundColorName = backgroundColorName;
 		}
 
+		@Override
 		public void applyStyles(TextStyle textStyle) {
 			ColorRegistry colorRegistry = JFaceResources.getColorRegistry();
 			if (fForegroundColorName != null) {

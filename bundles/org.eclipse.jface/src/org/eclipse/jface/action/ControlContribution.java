@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2006 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,7 @@
 package org.eclipse.jface.action;
 
 import org.eclipse.core.runtime.Assert;
+import org.eclipse.jface.util.Policy;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
@@ -63,7 +64,7 @@ public abstract class ControlContribution extends ContributionItem {
      * </p>
      *
      * @param parent the parent composite
-     * @return the new control
+     * @return the new control, must not be <code>null</code>
      */
     protected abstract Control createControl(Composite parent);
 
@@ -73,7 +74,8 @@ public abstract class ControlContribution extends ContributionItem {
      * Subclasses must implement <code>createControl</code> rather than
      * overriding this method.
      */
-    public final void fill(Composite parent) {
+    @Override
+	public final void fill(Composite parent) {
         createControl(parent);
     }
 
@@ -81,7 +83,8 @@ public abstract class ControlContribution extends ContributionItem {
      * The control item implementation of this <code>IContributionItem</code>
      * method throws an exception since controls cannot be added to menus.
      */
-    public final void fill(Menu parent, int index) {
+    @Override
+	public final void fill(Menu parent, int index) {
         Assert.isTrue(false, "Can't add a control to a menu");//$NON-NLS-1$
     }
 
@@ -93,10 +96,17 @@ public abstract class ControlContribution extends ContributionItem {
      * Subclasses must implement <code>createControl</code> rather than
      * overriding this method.
      */
-    public final void fill(ToolBar parent, int index) {
+    @Override
+	public final void fill(ToolBar parent, int index) {
         Control control = createControl(parent);
-        ToolItem ti = new ToolItem(parent, SWT.SEPARATOR, index);
-        ti.setControl(control);
-        ti.setWidth(computeWidth(control));
+		if (control == null) {
+			Policy.logException(new IllegalStateException(
+					"createControl(Composite) of " + getClass() //$NON-NLS-1$
+							+ " returned null, cannot fill toolbar")); //$NON-NLS-1$
+		} else {
+			ToolItem ti = new ToolItem(parent, SWT.SEPARATOR, index);
+			ti.setControl(control);
+			ti.setWidth(computeWidth(control));
+		}
     }
 }

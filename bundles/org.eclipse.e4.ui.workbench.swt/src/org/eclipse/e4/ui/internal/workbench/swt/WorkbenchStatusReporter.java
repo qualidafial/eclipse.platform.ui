@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,7 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Sopot Cela (sopotcela@gmail.com) Bug 386022 - Title of ErrorDialog in WorkbenchStatusReporter should be externalized
  ******************************************************************************/
 
 package org.eclipse.e4.ui.internal.workbench.swt;
@@ -14,9 +15,11 @@ package org.eclipse.e4.ui.internal.workbench.swt;
 import javax.inject.Inject;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.core.di.annotations.Optional;
 import org.eclipse.e4.core.services.log.Logger;
 import org.eclipse.e4.core.services.statusreporter.StatusReporter;
+import org.eclipse.e4.ui.workbench.swt.internal.copy.WorkbenchSWTMessages;
 import org.eclipse.jface.dialogs.ErrorDialog;
 import org.eclipse.jface.window.IShellProvider;
 import org.eclipse.swt.SWT;
@@ -29,6 +32,7 @@ import org.osgi.framework.BundleContext;
 public class WorkbenchStatusReporter extends StatusReporter {
 
 	@Inject
+	@Optional
 	IShellProvider shellProvider;
 	@Inject
 	Logger logger;
@@ -36,6 +40,9 @@ public class WorkbenchStatusReporter extends StatusReporter {
 	@Optional
 	BundleContext bundleContext;
 	ErrorDialog dialog;
+
+	@Inject
+	private IEclipseContext context;
 
 	public void report(IStatus status, int style, Object... information) {
 		int action = style & (IGNORE | LOG | SHOW | BLOCK);
@@ -77,11 +84,29 @@ public class WorkbenchStatusReporter extends StatusReporter {
 			log(status);
 			return;
 		}
-		final Status exceptionStatus = new Status(status.getSeverity(), status
-				.getPlugin(), status.getException() == null ? status
-				.getMessage() : status.getException().toString(), status
-				.getException());
-		dialog = new ErrorDialog(shellProvider.getShell(), "Internal Error",
+		final Status exceptionStatus = new Status(status.getSeverity(),
+				status.getPlugin(),
+				status.getException() == null ? status.getMessage() : status
+						.getException().toString(), status.getException());
+
+		// TBD this code should really be in IShellProvider which should be
+		// available at the application context level.
+		Shell myShell = null;
+		if (shellProvider != null)
+			myShell = shellProvider.getShell();
+		else {
+			IEclipseContext activeLeaf = context.getActiveLeaf();
+			if (activeLeaf != null) {
+				IShellProvider provider = activeLeaf.get(IShellProvider.class);
+				if (provider != null)
+					myShell = provider.getShell();
+			}
+		}
+		if (myShell == null) {
+			myShell = new Shell();
+		}
+
+		dialog = new ErrorDialog(myShell, WorkbenchSWTMessages.InternalError,
 				status.getMessage(),
 				status.getException() != null ? exceptionStatus : status, ERROR
 						| WARNING | INFO) {

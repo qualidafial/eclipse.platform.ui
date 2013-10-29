@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2006 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,6 +10,10 @@
  *******************************************************************************/
 
 package org.eclipse.ui.internal;
+
+import java.util.HashSet;
+import org.eclipse.jface.action.IContributionManager;
+import org.eclipse.ui.PlatformUI;
 
 /**
  * Contribution item for actions provided by plugins via workbench
@@ -38,4 +42,35 @@ public class PluginActionCoolBarContributionItem extends
         this.actionSetId = id;
     }
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * org.eclipse.ui.internal.PluginActionContributionItem#invalidateParent()
+	 */
+	@Override
+	protected void invalidateParent() {
+		super.invalidateParent();
+		IContributionManager parent = getParent();
+		if (parent != null && managersToUpdate.add(parent)) {
+			if (!queued) {
+				queued = true;
+				PlatformUI.getWorkbench().getDisplay().asyncExec(updater);
+			}
+		}
+	}
+
+	private static Runnable updater = new Runnable() {
+		public void run() {
+			IContributionManager[] managers = managersToUpdate
+					.toArray(new IContributionManager[managersToUpdate.size()]);
+			managersToUpdate.clear();
+			queued = false;
+			for (IContributionManager manager : managers) {
+				manager.update(false);
+			}
+		}
+	};
+	private static HashSet<IContributionManager> managersToUpdate = new HashSet<IContributionManager>();
+	private static boolean queued = false;
 }

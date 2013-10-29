@@ -2,8 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %pluginName
 Bundle-SymbolicName: org.eclipse.ui.tests.rcp; singleton:=true
-Bundle-Version: 3.3.100.qualifier
-Bundle-ClassPath: rcptests.jar
+Bundle-Version: 3.3.200.qualifier
 Bundle-Activator: org.eclipse.core.internal.compatibility.PluginActivator
 Bundle-Vendor: %providerName
 Require-Bundle: org.eclipse.core.runtime.compatibility,
@@ -17,3 +16,4 @@ Export-Package: org.eclipse.ui.tests.rcp,
  org.eclipse.ui.tests.rcp.performance,
  org.eclipse.ui.tests.rcp.util
 Bundle-Localization: plugin
+Eclipse-BundleShape: dir

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,7 +14,6 @@ import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.core.runtime.dynamichelpers.IExtensionTracker;
 import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.ui.internal.ICompatibleWorkbenchPage;
-import org.eclipse.ui.presentations.IStackPresentationSite;
 
 /**
  * A workbench page consists of an arrangement of views and editors intended to
@@ -216,7 +215,7 @@ public interface IWorkbenchPage extends IPartService, ISelectionService,
 	 * 
 	 * @since 3.2
 	 */
-	public static final int STATE_MINIMIZED = IStackPresentationSite.STATE_MINIMIZED;
+	public static final int STATE_MINIMIZED = 0;
 
 	/**
 	 * State of a view in a given page when the page is zoomed in on the view
@@ -224,7 +223,7 @@ public interface IWorkbenchPage extends IPartService, ISelectionService,
 	 * 
 	 * @since 3.2
 	 */
-	public static final int STATE_MAXIMIZED = IStackPresentationSite.STATE_MAXIMIZED;
+	public static final int STATE_MAXIMIZED = 1;
 
 	/**
 	 * State of a view in a given page when the view stack is in it's normal
@@ -232,7 +231,7 @@ public interface IWorkbenchPage extends IPartService, ISelectionService,
 	 * 
 	 * @since 3.2
 	 */
-	public static final int STATE_RESTORED = IStackPresentationSite.STATE_RESTORED;
+	public static final int STATE_RESTORED = 2;
 
 	/**
 	 * Activates the given part. The part will be brought to the front and given
@@ -1207,4 +1206,89 @@ public interface IWorkbenchPage extends IPartService, ISelectionService,
 	 */
 	public IEditorReference[] openEditors(final IEditorInput[] inputs, final String[] editorIDs, 
 			final int matchFlags) throws MultiPartInitException;
+
+	/**
+	 * Opens editors for the given inputs. Only the editor constructed for the
+	 * given index will be activated.
+	 * <p>
+	 * There are effectively two different ways to use this method based on what
+	 * information the supplied mementos contain @see
+	 * org.eclipse.ui.IWorkbenchPage
+	 * #getEditorState(org.eclipse.ui.IEditorReference []):
+	 * <ol>
+	 * <li>
+	 * If the mementos contain the 'input' information then only the memento
+	 * itself is required since it can be used to re-create the editor input and
+	 * its editorID. If all the mementos are of this type then the inputs and
+	 * editorIDs arrays may be null.</li>
+	 * <li>
+	 * If the supplied memento only contains the editor state then both the
+	 * input and editorID must be non-null.</li>
+	 * </ol>
+	 * </p>
+	 * <p>
+	 * The editor type is determined by mapping <code>editorIDs</code> to an
+	 * editor extension registered with the workbench. An editor id is passed
+	 * rather than an editor object to prevent the accidental creation of more
+	 * than one editor for the same input. It also guarantees a consistent
+	 * lifecycle for editors, regardless of whether they are created by the user
+	 * or restored from saved data.
+	 * </p>
+	 * <p>
+	 * The length of the input array and editor ID arrays must be the same. The
+	 * editors are opened using pairs of { input[i], editorIDs[i] }.
+	 * </p>
+	 * <p>
+	 * The mementos array mat be null but if not must match the input array in
+	 * length. Entries in the mementos array may also be null if no state is
+	 * desired for that particular editor.
+	 * </p>
+	 * 
+	 * @param inputs
+	 *            the editor inputs
+	 * @param editorIDs
+	 *            the IDs of the editor extensions to use, in the order of
+	 *            inputs
+	 * @param mementos
+	 *            the mementos representing the state to open the editor with.
+	 *            If the supplied memento contains the input's state as well as
+	 *            the editor's state then the corresponding entries in the
+	 *            'inputs' and 'ids' arrays may be <code>null</code> (they will
+	 *            be created from the supplied memento).
+	 * 
+	 * @param matchFlags
+	 *            a bit mask consisting of zero or more of the MATCH_* constants
+	 *            OR-ed together
+	 * @param activateIndex
+	 *            the index of the editor to make active or -1 if no activation
+	 *            is desired.
+	 * @return references to the editors constructed for the inputs. The editors
+	 *         corresponding to those reference might not be materialized.
+	 * @exception MultiPartInitException
+	 *                if at least one editor could not be created or initialized
+	 * @see #MATCH_NONE
+	 * @see #MATCH_INPUT
+	 * @see #MATCH_ID
+	 * @since 3.8.2
+	 */
+	public IEditorReference[] openEditors(final IEditorInput[] inputs, final String[] editorIDs,
+			final IMemento[] mementos, final int matchFlags, final int activateIndex)
+			throws MultiPartInitException;
+
+	/**
+	 * Return an IMemento containing the current state of the editor for each of
+	 * the given references. These mementos may be used to determine the initial
+	 * state of an editor on a subsequent open.
+	 * 
+	 * @param editorRefs
+	 *            The array of editor references to get the state for
+	 * @param includeInputState
+	 *            If <code>true</code> then the resulting memento will be
+	 *            contain the editor input's state as well as the editor's
+	 *            state.
+	 * @return The array of mementos. The length of the array will match that of
+	 *         the refs array.
+	 * @since 3.8.2
+	 */
+	public IMemento[] getEditorState(IEditorReference[] editorRefs, boolean includeInputState);
 }

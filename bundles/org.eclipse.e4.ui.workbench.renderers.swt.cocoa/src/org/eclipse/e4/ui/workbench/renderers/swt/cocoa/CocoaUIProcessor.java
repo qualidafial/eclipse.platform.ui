@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 Brian de Alwis, and others.
+ * Copyright (c) 2010, 2012 Brian de Alwis, and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,15 +10,24 @@
  *******************************************************************************/
 package org.eclipse.e4.ui.workbench.renderers.swt.cocoa;
 
+import java.util.List;
 import javax.inject.Inject;
+import javax.inject.Provider;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.e4.core.di.annotations.Execute;
+import org.eclipse.e4.core.services.statusreporter.StatusReporter;
+import org.eclipse.e4.ui.bindings.EBindingService;
 import org.eclipse.e4.ui.model.application.MAddon;
 import org.eclipse.e4.ui.model.application.MApplication;
 import org.eclipse.e4.ui.model.application.MApplicationFactory;
+import org.eclipse.e4.ui.model.application.commands.MBindingContext;
+import org.eclipse.e4.ui.model.application.commands.MBindingTable;
 import org.eclipse.e4.ui.model.application.commands.MCategory;
 import org.eclipse.e4.ui.model.application.commands.MCommand;
 import org.eclipse.e4.ui.model.application.commands.MCommandsFactory;
 import org.eclipse.e4.ui.model.application.commands.MHandler;
+import org.eclipse.e4.ui.model.application.commands.MKeyBinding;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
 
@@ -39,19 +48,29 @@ public class CocoaUIProcessor {
 	static final String HOST_ID = "org.eclipse.e4.ui.workbench.renderers.swt"; //$NON-NLS-1$
 	protected static final String CONTRIBUTION_URI_PREFIX = "bundleclass://" + HOST_ID; //$NON-NLS-1$
 
+	// constants for close dialog
+	private static final String COMMAND_ID_CLOSE_DIALOG = "org.eclipse.ui.cocoa.closeDialog"; //$NON-NLS-1$
+	private static final String CLOSE_DIALOG_KEYSEQUENCE = "M1+W"; //$NON-NLS-1$
+
 	@Inject
 	protected MApplication app;
+
+	@Inject
+	protected Provider<StatusReporter> statusReporter;
 
 	/**
 	 * Execute!
 	 */
 	@Execute
 	public void execute() {
+		// hook About, Preferences, etc.
 		installAddon();
 
-		// these handlers are installed directly on the app and are thus
-		// independent of the context.
-		installHandlers();
+		// Window > Zoom, etc.
+		installWindowHandlers();
+
+		// install close dialog handlers
+		installCloseDialogHandlers();
 	}
 
 	/**
@@ -76,7 +95,7 @@ public class CocoaUIProcessor {
 	 * than in a <tt>fragments.e4xmi</tt> as the project
 	 * <tt>Application.e4xmi</tt> may (and likely will) use different IDs.
 	 */
-	public void installHandlers() {
+	public void installWindowHandlers() {
 		installHandler(
 				defineCommand(
 						"org.eclipse.ui.category.window", "org.eclipse.ui.cocoa.arrangeWindowsInFront", //$NON-NLS-1$ //$NON-NLS-2$
@@ -88,11 +107,109 @@ public class CocoaUIProcessor {
 						"org.eclipse.ui.category.window", "org.eclipse.ui.cocoa.minimizeWindow", //$NON-NLS-1$ //$NON-NLS-2$
 						"%command.minimize.name", "%command.minimize.desc", CONTRIBUTOR_URI), //$NON-NLS-1$ //$NON-NLS-2$
 				MinimizeWindowHandler.class, CONTRIBUTOR_URI);
+
+		MCommand toggleFullscreenCommand = defineCommand(
+				"org.eclipse.ui.category.window", "org.eclipse.ui.cocoa.fullscreenWindow", //$NON-NLS-1$ //$NON-NLS-2$
+				"%command.fullscreen.name", "%command.fullscreen.desc", CONTRIBUTOR_URI); //$NON-NLS-1$//$NON-NLS-2$
+		installHandler(toggleFullscreenCommand, FullscreenWindowHandler.class,
+				CONTRIBUTOR_URI);
+		// COMMAND+ALT+F is taken by Force Return
+		installKeybinding(
+				"org.eclipse.ui.contexts.window", "COMMAND+CTRL+F", toggleFullscreenCommand); //$NON-NLS-1$ //$NON-NLS-2$
+
 		installHandler(
 				defineCommand(
 						"org.eclipse.ui.category.window", "org.eclipse.ui.cocoa.zoomWindow", //$NON-NLS-1$ //$NON-NLS-2$
 						"%command.zoom.name", "%command.zoom.desc", CONTRIBUTOR_URI), //$NON-NLS-1$//$NON-NLS-2$
 				ZoomWindowHandler.class, CONTRIBUTOR_URI);
+	}
+
+	/** Add the special Cmd-W dialog helper */
+	private void installCloseDialogHandlers() {
+		MCommand closeDialogCommand = defineCommand(
+				"org.eclipse.ui.category.window", COMMAND_ID_CLOSE_DIALOG, //$NON-NLS-1$
+				"%command.closeDialog.name", //$NON-NLS-1$
+				"%command.closeDialog.desc", CONTRIBUTOR_URI);//$NON-NLS-1$
+		installHandler(closeDialogCommand, CloseDialogHandler.class,
+				CONTRIBUTOR_URI);
+		installKeybinding(EBindingService.DIALOG_CONTEXT_ID,
+				CLOSE_DIALOG_KEYSEQUENCE, closeDialogCommand);
+	}
+
+	/**
+	 * Install a keybinding to the provided command, providing the command is
+	 * not already bound to another keybinding.
+	 * 
+	 * @param bindingContextId
+	 *            the keybinding context
+	 * @param keysequence
+	 *            the key sequence to be bound
+	 * @param cmd
+	 *            the command to be bound
+	 */
+	private void installKeybinding(String bindingContextId, String keysequence,
+			MCommand cmd) {
+		// there is a one-to-one mapping between binding contexts and
+		// binding tables, though binding tables may not necessarily
+		// guaranteed an element id.
+		MBindingTable bindingTable = null;
+		for (MBindingTable table : app.getBindingTables()) {
+			for (MKeyBinding binding : table.getBindings()) {
+				// only perform the binding if cmd not already bound
+				if (binding.getCommand() == cmd) {
+					return;
+				}
+			}
+			if (table.getBindingContext() != null
+					&& bindingContextId.equals(table.getBindingContext()
+							.getElementId())) {
+				bindingTable = table;
+			}
+		}
+
+		if (bindingTable == null) {
+			MBindingContext bindingContext = findBindingContext(
+					app.getBindingContexts(), bindingContextId);
+			if (bindingContext == null) {
+				statusReporter
+						.get()
+						.report(new Status(
+								IStatus.WARNING,
+								CocoaUIProcessor.FRAGMENT_ID,
+								"No binding context exists for " + bindingContextId), //$NON-NLS-1$
+						StatusReporter.LOG);
+				return;
+			}
+			bindingTable = MCommandsFactory.INSTANCE.createBindingTable();
+			bindingTable.setBindingContext(bindingContext);
+			bindingTable.setContributorURI(CONTRIBUTOR_URI);
+			app.getBindingTables().add(bindingTable);
+		}
+
+		MKeyBinding binding = MCommandsFactory.INSTANCE.createKeyBinding();
+		binding.setCommand(cmd);
+		binding.setKeySequence(keysequence);
+		bindingTable.getBindings().add(binding);
+	}
+
+	/**
+	 * @param bindingContexts
+	 * @param bindingContextId
+	 * @return
+	 */
+	private MBindingContext findBindingContext(
+			List<MBindingContext> bindingContexts, String bindingContextId) {
+		for (MBindingContext bc : bindingContexts) {
+			if (bindingContextId.equals(bc.getElementId())) {
+				return bc;
+			}
+			MBindingContext result = findBindingContext(bc.getChildren(),
+					bindingContextId);
+			if (result != null) {
+				return result;
+			}
+		}
+		return null;
 	}
 
 	/**

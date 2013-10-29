@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2008 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -88,7 +88,7 @@ public interface IWorkbenchPartSite extends IWorkbenchSite {
      * <ol>
      *		<li>If the target part has only one context menu it should be registered
      *			with <code>id == part id</code>.  This can be done easily by calling
-     *			<code>registerContextMenu(MenuManager, ISelectionProvider).  
+     *			<code>registerContextMenu(MenuManager, ISelectionProvider)</code>.
      *		<li>If the target part has more than one context menu a unique id should be
      *			defined for each.  Prefix each menu id with the part id and publish these
      *			ids within the javadoc for the target part.  Register each menu at 

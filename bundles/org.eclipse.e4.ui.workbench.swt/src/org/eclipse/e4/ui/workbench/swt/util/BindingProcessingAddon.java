@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,8 @@
 
 package org.eclipse.e4.ui.workbench.swt.util;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -19,11 +21,13 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import org.eclipse.core.commands.ParameterizedCommand;
+import org.eclipse.core.commands.common.NotDefinedException;
 import org.eclipse.core.commands.contexts.Context;
 import org.eclipse.core.commands.contexts.ContextManager;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.e4.core.commands.ECommandService;
 import org.eclipse.e4.core.contexts.IEclipseContext;
+import org.eclipse.e4.core.di.annotations.Optional;
 import org.eclipse.e4.core.services.events.IEventBroker;
 import org.eclipse.e4.ui.bindings.EBindingService;
 import org.eclipse.e4.ui.bindings.internal.BindingTable;
@@ -45,6 +49,8 @@ import org.eclipse.e4.ui.workbench.UIEvents;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.jface.bindings.Binding;
+import org.eclipse.jface.bindings.BindingManager;
+import org.eclipse.jface.bindings.Scheme;
 import org.eclipse.jface.bindings.TriggerSequence;
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventHandler;
@@ -53,6 +59,7 @@ import org.osgi.service.event.EventHandler;
  * Process contexts in the model, feeding them into the command service.
  */
 public class BindingProcessingAddon {
+	private static final String[] DEFAULT_SCHEMES = { "org.eclipse.ui.defaultAcceleratorConfiguration" };
 
 	@Inject
 	private MApplication application;
@@ -67,6 +74,10 @@ public class BindingProcessingAddon {
 	private BindingTableManager bindingTables;
 
 	@Inject
+	@Optional
+	private BindingManager bindingManager;
+
+	@Inject
 	private ECommandService commandService;
 
 	@Inject
@@ -78,9 +89,35 @@ public class BindingProcessingAddon {
 
 	@PostConstruct
 	public void init() {
+		String[] schemes = DEFAULT_SCHEMES;
+		if (bindingManager != null) {
+			final Scheme activeScheme = bindingManager.getActiveScheme();
+			if (activeScheme != null) {
+				schemes = getSchemeIds(activeScheme.getId());
+			}
+		}
+		bindingTables.setActiveSchemes(schemes);
 		defineBindingTables();
 		activateContexts(application);
 		registerModelListeners();
+	}
+
+	private final String[] getSchemeIds(String schemeId) {
+		final List<String> strings = new ArrayList<String>();
+		while (schemeId != null) {
+			strings.add(schemeId);
+			try {
+				schemeId = getScheme(schemeId).getParentId();
+			} catch (final NotDefinedException e) {
+				return new String[0];
+			}
+		}
+
+		return strings.toArray(new String[strings.size()]);
+	}
+
+	private final Scheme getScheme(String schemeId) {
+		return bindingManager.getScheme(schemeId);
 	}
 
 	private void activateContexts(Object me) {
@@ -141,7 +178,9 @@ public class BindingProcessingAddon {
 		Binding keyBinding = createBinding(bindingContext,
 				binding.getCommand(), binding.getParameters(),
 				binding.getKeySequence(), binding);
-		if (keyBinding != null) {
+		if (keyBinding != null
+				&& !binding.getTags().contains(
+						EBindingService.DELETED_BINDING_TAG)) {
 			bindingTable.addBinding(keyBinding);
 		}
 	}
@@ -267,50 +306,51 @@ public class BindingProcessingAddon {
 				Object elementObj = event
 						.getProperty(UIEvents.EventTags.ELEMENT);
 				if (elementObj instanceof MApplication) {
-					Object newObj = event
-							.getProperty(UIEvents.EventTags.NEW_VALUE);
-					if (UIEvents.EventTypes.ADD.equals(event
-							.getProperty(UIEvents.EventTags.TYPE))
-							&& newObj instanceof MBindingTable) {
-						MBindingTable bt = (MBindingTable) newObj;
-						final Context bindingContext = contextManager
-								.getContext(bt.getBindingContext()
-										.getElementId());
-						final BindingTable table = new BindingTable(
-								bindingContext);
-						bindingTables.addTable(table);
-						List<MKeyBinding> bindings = bt.getBindings();
-						for (MKeyBinding binding : bindings) {
-							Binding keyBinding = createBinding(bindingContext,
-									binding.getCommand(),
-									binding.getParameters(),
-									binding.getKeySequence(), binding);
-							if (keyBinding != null) {
-								table.addBinding(keyBinding);
+					if (UIEvents.isADD(event)) {
+						for (Object newObj : UIEvents.asIterable(event,
+								UIEvents.EventTags.NEW_VALUE)) {
+							if (newObj instanceof MBindingTable) {
+								MBindingTable bt = (MBindingTable) newObj;
+								final Context bindingContext = contextManager
+										.getContext(bt.getBindingContext()
+												.getElementId());
+								final BindingTable table = new BindingTable(
+										bindingContext);
+								bindingTables.addTable(table);
+								List<MKeyBinding> bindings = bt.getBindings();
+								for (MKeyBinding binding : bindings) {
+									Binding keyBinding = createBinding(
+											bindingContext,
+											binding.getCommand(),
+											binding.getParameters(),
+											binding.getKeySequence(), binding);
+									if (keyBinding != null) {
+										table.addBinding(keyBinding);
+									}
+								}
 							}
 						}
 					}
 				} else if (elementObj instanceof MBindingTable) {
-					Object newObj = event
-							.getProperty(UIEvents.EventTags.NEW_VALUE);
-					Object oldObj = event
-							.getProperty(UIEvents.EventTags.OLD_VALUE);
-
 					// adding a binding
-					if (UIEvents.EventTypes.ADD.equals(event
-							.getProperty(UIEvents.EventTags.TYPE))
-							&& newObj instanceof MKeyBinding) {
-
-						MKeyBinding binding = (MKeyBinding) newObj;
-						updateBinding(binding, true, elementObj);
+					if (UIEvents.isADD(event)) {
+						for (Object newObj : UIEvents.asIterable(event,
+								UIEvents.EventTags.NEW_VALUE)) {
+							if (newObj instanceof MKeyBinding) {
+								MKeyBinding binding = (MKeyBinding) newObj;
+								updateBinding(binding, true, elementObj);
+							}
+						}
 					}
 					// removing a binding
-					else if (UIEvents.EventTypes.REMOVE.equals(event
-							.getProperty(UIEvents.EventTags.TYPE))
-							&& oldObj instanceof MKeyBinding) {
-
-						MKeyBinding binding = (MKeyBinding) oldObj;
-						updateBinding(binding, false, elementObj);
+					else if (UIEvents.isREMOVE(event)) {
+						for (Object oldObj : UIEvents.asIterable(event,
+								UIEvents.EventTags.OLD_VALUE)) {
+							if (oldObj instanceof MKeyBinding) {
+								MKeyBinding binding = (MKeyBinding) oldObj;
+								updateBinding(binding, false, elementObj);
+							}
+						}
 					}
 				} else if (elementObj instanceof MKeyBinding) {
 					MKeyBinding binding = (MKeyBinding) elementObj;
@@ -320,42 +360,58 @@ public class BindingProcessingAddon {
 
 					// System.out.println("MKeyBinding." + attrName + ": "
 					// + event.getProperty(UIEvents.EventTags.TYPE));
-					if (UIEvents.EventTypes.SET.equals(event
-							.getProperty(UIEvents.EventTags.TYPE))) {
+					if (UIEvents.isSET(event)) {
 						Object oldObj = event
 								.getProperty(UIEvents.EventTags.OLD_VALUE);
 						if (UIEvents.KeyBinding.COMMAND.equals(attrName)) {
 							MKeyBinding oldBinding = (MKeyBinding) EcoreUtil
 									.copy((EObject) binding);
 							oldBinding.setCommand((MCommand) oldObj);
-							updateBinding(oldBinding, false, null);
+							updateBinding(oldBinding, false,
+									((EObject) binding).eContainer());
 							updateBinding(binding, true, null);
 						} else if (UIEvents.KeySequence.KEYSEQUENCE
 								.equals(attrName)) {
 							MKeyBinding oldBinding = (MKeyBinding) EcoreUtil
 									.copy((EObject) binding);
 							oldBinding.setKeySequence((String) oldObj);
-							updateBinding(oldBinding, false, null);
+							updateBinding(oldBinding, false,
+									((EObject) binding).eContainer());
 							updateBinding(binding, true, null);
 						}
 					} else if (UIEvents.KeyBinding.PARAMETERS.equals(attrName)) {
-						if (UIEvents.EventTypes.ADD.equals(event
-								.getProperty(UIEvents.EventTags.TYPE))) {
+						if (UIEvents.isADD(event)) {
 							Object newObj = event
 									.getProperty(UIEvents.EventTags.NEW_VALUE);
 							MKeyBinding oldBinding = (MKeyBinding) EcoreUtil
 									.copy((EObject) binding);
-							oldBinding.getParameters().remove(newObj);
-							updateBinding(oldBinding, false, null);
+							if (UIEvents.EventTypes.ADD_MANY.equals(event
+									.getProperty(UIEvents.EventTags.TYPE))) {
+								oldBinding.getParameters().removeAll(
+										(Collection<?>) newObj);
+							} else {
+								oldBinding.getParameters().remove(newObj);
+							}
+							updateBinding(oldBinding, false,
+									((EObject) binding).eContainer());
 							updateBinding(binding, true, null);
-						} else if (UIEvents.EventTypes.REMOVE.equals(event
-								.getProperty(UIEvents.EventTags.TYPE))) {
+						} else if (UIEvents.isREMOVE(event)) {
 							Object oldObj = event
 									.getProperty(UIEvents.EventTags.OLD_VALUE);
 							MKeyBinding oldBinding = (MKeyBinding) EcoreUtil
 									.copy((EObject) binding);
-							oldBinding.getParameters().add((MParameter) oldObj);
-							updateBinding(oldBinding, false, null);
+							if (UIEvents.EventTypes.REMOVE_MANY.equals(event
+									.getProperty(UIEvents.EventTags.TYPE))) {
+								@SuppressWarnings("unchecked")
+								Collection<MParameter> parms = (Collection<MParameter>) oldObj;
+								oldBinding.getParameters().addAll(parms);
+							} else {
+								oldBinding.getParameters().add(
+										(MParameter) oldObj);
+							}
+
+							updateBinding(oldBinding, false,
+									((EObject) binding).eContainer());
 							updateBinding(binding, true, null);
 						}
 					}

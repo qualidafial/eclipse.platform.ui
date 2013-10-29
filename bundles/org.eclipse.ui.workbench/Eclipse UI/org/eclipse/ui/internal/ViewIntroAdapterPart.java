@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2007 IBM Corporation and others.
+ * Copyright (c) 2004, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -63,18 +63,14 @@ public final class ViewIntroAdapterPart extends ViewPart {
 			if (changedObj != getIntroStack())
 				return;
 
-			String eventType = (String) event.getProperty(UIEvents.EventTags.TYPE);
-			String tag = (String) event.getProperty(UIEvents.EventTags.NEW_VALUE);
-			String oldVal = (String) event.getProperty(UIEvents.EventTags.OLD_VALUE);
-
-			if (UIEvents.EventTypes.ADD.equals(eventType)) {
-				if (IPresentationEngine.MAXIMIZED.equals(tag)) {
-					setStandby(false);
-				}
-			} else if (UIEvents.EventTypes.REMOVE.equals(eventType)) {
-				if (IPresentationEngine.MAXIMIZED.equals(oldVal)) {
-					setStandby(true);
-				}
+			if (UIEvents.isADD(event)
+					&& UIEvents.contains(event, UIEvents.EventTags.NEW_VALUE,
+							IPresentationEngine.MAXIMIZED)) {
+				setStandby(false);
+			} else if (UIEvents.isREMOVE(event)
+					&& UIEvents.contains(event, UIEvents.EventTags.OLD_VALUE,
+							IPresentationEngine.MAXIMIZED)) {
+				setStandby(true);
 			}
 		}
 	};
@@ -140,6 +136,15 @@ public final class ViewIntroAdapterPart extends ViewPart {
     public void createPartControl(Composite parent) {
         addZoomListener();
         introPart.createPartControl(parent);
+
+		ViewSite site = (ViewSite) getViewSite();
+		MPart introModelPart = site.getModel();
+		if (introModelPart.getCurSharedRef() != null) {
+			MUIElement parentElement = introModelPart.getCurSharedRef().getParent();
+			if (parentElement instanceof MPartStack) {
+				setStandby(!parentElement.getTags().contains(IPresentationEngine.MAXIMIZED));
+			}
+		}
     }
 
     /* (non-Javadoc)

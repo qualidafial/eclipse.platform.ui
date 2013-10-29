@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008 Versant Corporation and others.
+ * Copyright (c) 2008, 2012 Versant Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -31,7 +31,10 @@ public class NonRestorableViewTest extends TestCase {
 	private static final String NON_RESTORABLE_VIEW_ID = "org.eclipse.ui.tests.session.NonRestorableView";
 
 	public static TestSuite suite() {
-		return new TestSuite(NonRestorableViewTest.class);
+		TestSuite ts = new TestSuite("org.eclipse.ui.tests.session.NonRestorableViewTest");
+		ts.addTest(new NonRestorableViewTest("test01ActivateView"));
+		ts.addTest(new NonRestorableViewTest("test02SecondOpening"));
+		return ts;
 	}
 
 	public NonRestorableViewTest(String testName) {

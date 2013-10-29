@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2011 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,16 +13,19 @@ package org.eclipse.ui.internal.e4.compatibility;
 
 import org.eclipse.e4.ui.model.application.ui.MElementContainer;
 import org.eclipse.e4.ui.model.application.ui.MGenericStack;
+import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.application.ui.advanced.MPlaceholder;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
+import org.eclipse.e4.ui.model.application.ui.basic.MPartStack;
 import org.eclipse.e4.ui.model.application.ui.menu.MToolBar;
-import org.eclipse.e4.ui.widgets.CTabFolder;
+import org.eclipse.e4.ui.workbench.renderers.swt.StackRenderer;
 import org.eclipse.e4.ui.workbench.renderers.swt.ToolBarManagerRenderer;
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.action.IToolBarManager;
 import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.ToolBarManager;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.ui.IActionBars;
@@ -110,7 +113,42 @@ public class ActionBars extends SubActionBars {
 				}
 			}
 		}
+
+		MUIElement parent = getParentModel();
+		if (parent != null && isOnTop()) {
+			Object renderer = parent.getRenderer();
+			if (renderer instanceof StackRenderer) {
+				StackRenderer stackRenderer = (StackRenderer) renderer;
+				CTabFolder folder = (CTabFolder) parent.getWidget();
+				stackRenderer.adjustTopRight(folder);
+			}
+		}
+
 		super.updateActionBars();
+	}
+
+	private MUIElement getParentModel() {
+		MElementContainer<MUIElement> parent = part.getParent();
+		if (parent == null) {
+			MPlaceholder placeholder = part.getCurSharedRef();
+			return placeholder == null ? null : placeholder.getParent();
+		}
+		return parent;
+	}
+
+	private boolean isOnTop() {
+		MUIElement parentModel = getParentModel();
+		if (parentModel.getRenderer() instanceof StackRenderer) {
+			MPartStack stack = (MPartStack) parentModel;
+			if (stack.getSelectedElement() == part)
+				return true;
+			if (stack.getSelectedElement() instanceof MPlaceholder) {
+				MPlaceholder ph = (MPlaceholder) stack.getSelectedElement();
+				return ph.getRef() == part;
+			}
+		}
+
+		return true;
 	}
 
 	private Control getPackParent(Control control) {
@@ -142,6 +180,20 @@ public class ActionBars extends SubActionBars {
 		}
 		return parent instanceof MGenericStack ? parent.getSelectedElement() == part
 				: parent != null;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.eclipse.ui.SubActionBars#dispose()
+	 */
+	@Override
+	public void dispose() {
+		menuManager.dispose();
+		if (toolbarManager instanceof ToolBarManager) {
+			((ToolBarManager) toolbarManager).dispose();
+		}
+		super.dispose();
 	}
 
 }

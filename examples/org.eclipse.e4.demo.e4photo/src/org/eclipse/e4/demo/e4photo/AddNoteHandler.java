@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2010 IBM Corporation and others.
+ * Copyright (c) 2009, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -29,9 +29,11 @@ public class AddNoteHandler {
 	
 	@Execute
 	public void execute(IWorkbench workbench, @Named(IServiceConstants.ACTIVE_SELECTION) IResource selection, EPartService partService) {
+		if (selection == null)
+			return;
 		System.out.println("AddNoteHandler called " + selection.toString());
 		// add an editor next to the Exif tab
-		MPart exifPart = partService.findPart("e4.photo.demo.exif");
+		MPart exifPart = partService.findPart("ExifView");
 		MPart editor = BasicFactoryImpl.eINSTANCE.createPart();
 		editor.setLabel("Note");
 		editor.setContributionURI("bundleclass://org.eclipse.e4.demo.e4photo/org.eclipse.e4.demo.e4photo.NoteEditor");

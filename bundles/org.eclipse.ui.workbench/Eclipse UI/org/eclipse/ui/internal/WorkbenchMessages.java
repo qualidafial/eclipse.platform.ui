@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2012 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,6 +9,9 @@
  * IBM - Initial API and implementation
  * Sebastian Davids - bug 128529
  * Semion Chichelnitsky (semion@il.ibm.com) - bug 278064
+ * Tristan Hume - <trishume@gmail.com> -
+ * 		Fix for Bug 2369 [Workbench] Would like to be able to save workspace without exiting
+ * 		Implemented workbench auto-save to correctly restore state in case of crash.
  *******************************************************************************/
 package org.eclipse.ui.internal;
 
@@ -22,6 +25,10 @@ import org.eclipse.osgi.util.NLS;
 public class WorkbenchMessages extends NLS {
 	private static final String BUNDLE_NAME = "org.eclipse.ui.internal.messages";//$NON-NLS-1$
 
+
+	public static String ThemeChangeWarningText;
+
+	public static String ThemeChangeWarningTitle;
 
 	public static String BundleSigningTray_Cant_Find_Service;
 
@@ -319,6 +326,7 @@ public class WorkbenchMessages extends NLS {
 	public static String AboutPluginsDialog_columns;
 	public static String AboutPluginsDialog_errorTitle;
 	public static String AboutPluginsDialog_unableToOpenFile;
+	public static String AboutPluginsDialog_filterTextMessage;
 	public static String AboutFeaturesDialog_shellTitle;
 	public static String AboutFeaturesDialog_featureName;
 	public static String AboutFeaturesDialog_featureId;
@@ -405,6 +413,7 @@ public class WorkbenchMessages extends NLS {
 	public static String NewWizardsRegistryReader_otherCategory;
 	public static String NewWizardDropDown_text;
 	
+	public static String WizardHandler_menuLabel;
 	public static String WorkbenchWizard_errorMessage;
 	public static String WorkbenchWizard_errorTitle;
 	public static String WizardTransferPage_selectAll;
@@ -469,7 +478,7 @@ public class WorkbenchMessages extends NLS {
 	// public static String ViewsPreference_currentThemeDescription;
 	// public static String ViewsPreference_currentThemeFormat;
 	public static String ViewsPreference_enableAnimations;
-	// public static String ViewsPreference_useColoredLabels;
+	public static String ViewsPreference_useColoredLabels;
 	// public static String ViewsPreference_override;
 	// public static String ViewsPreference_restartRequestJobName;
 	
@@ -801,6 +810,8 @@ public class WorkbenchMessages extends NLS {
 	public static String WorkbenchPreference_reuseEditorsThresholdError;
 	public static String WorkbenchPreference_recentFiles;
 	public static String WorkbenchPreference_recentFilesError;
+	public static String WorkbenchPreference_workbenchSaveInterval;
+	public static String WorkbenchPreference_workbenchSaveIntervalError;
 	public static String WorkbenchEditorsAction_label;
 	public static String WorkbookEditorsAction_label;
 
@@ -1009,6 +1020,7 @@ public class WorkbenchMessages extends NLS {
     public static String ContentTypes_lockedFormat;
     public static String ContentTypes_characterSetLabel;
     public static String ContentTypes_characterSetUpdateLabel;
+    public static String ContentTypes_unsupportedEncoding;
     public static String ContentTypes_fileAssociationsLabel;
     public static String ContentTypes_fileAssociationsAddLabel;
     public static String ContentTypes_fileAssociationsEditLabel;

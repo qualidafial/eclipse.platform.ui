@@ -376,6 +376,23 @@
       <decorator
             lightweight="true"
             adaptable="true"
+			location="TOP_RIGHT"
+            label="%DecoratorSymlinkResource.label"
+            class="org.eclipse.ui.internal.ide.SymlinkDecorator"
+			state="true"
+            id="org.eclipse.ui.SymlinkDecorator">
+			<description>
+				%DecoratorSymlinkResource.description
+			</description>
+            <enablement>
+	            <objectClass
+	                  name="org.eclipse.core.runtime.PlatformObject">
+	            </objectClass>
+            </enablement>
+      </decorator>
+      <decorator
+            lightweight="true"
+            adaptable="true"
             location="BOTTOM_RIGHT"
             label="%DecoratorVirtualResource.label"
             class="org.eclipse.ui.internal.ide.VirtualResourceDecorator"
@@ -461,6 +478,9 @@
             id="org.eclipse.ui.ide.editors"
             label="%PreferenceKeywords.Editors"/>
       <keyword
+            id="org.eclipse.ui.ide.reuse"
+            label="%PreferenceKeywords.Reuse"/>
+      <keyword
             id="org.eclipse.ui.ide.pin"
             label="%PreferenceKeywords.Pin"/>
       <keyword
@@ -534,16 +554,13 @@
          <keywordReference id="org.eclipse.ui.ide.editing"/>
          <keywordReference id="org.eclipse.ui.ide.tabs"/>
          <keywordReference id="org.eclipse.ui.ide.editors"/>
+         <keywordReference id="org.eclipse.ui.ide.reuse"/>
          <keywordReference id="org.eclipse.ui.ide.pin"/>
          <keywordReference id="org.eclipse.ui.ide.dirty"/>
          <keywordReference id="org.eclipse.ui.ide.close"/>
          <keywordReference id="org.eclipse.ui.ide.recentlyOpened"/>
-         <keywordReference
-               id="org.eclipse.ui.ide.restore">
-         </keywordReference>
-         <keywordReference
-               id="org.eclipse.ui.ide.state">
-         </keywordReference>
+         <keywordReference id="org.eclipse.ui.ide.restore"/>
+         <keywordReference id="org.eclipse.ui.ide.state"/>
       </page>
       <page
             name="%PreferencePages.Perspectives"
@@ -847,6 +864,7 @@
             name="%command.buildProject.name"
             description="%command.buildProject.description"
             categoryId="org.eclipse.ui.category.project"
+            defaultHandler="org.eclipse.ui.internal.ide.handlers.BuildProjectHandler"
             id="org.eclipse.ui.project.buildProject">
       </command>
       <command
@@ -980,6 +998,12 @@
             description="%command.copyConfigCommand.description"
             id="org.eclipse.ui.ide.copyConfigCommand"
             name="%command.copyConfigCommand.name">
+      </command>
+      <command
+            categoryId="org.eclipse.ui.category.navigate"
+            name="%command.showInSystemExplorer.name"
+            id="org.eclipse.ui.ide.showInSystemExplorer"
+            description="%command.showInSystemExplorer.description">
       </command>
    </extension>
    
@@ -1636,23 +1660,6 @@
                commandId="org.eclipse.ui.ToggleCoolbarAction"
                tooltip="%menu.toggleCoolbar.tooltip"
                style="push">
-            <visibleWhen
-                  checkEnabled="false">
-                  <or>
-               		<with
-                  	   variable="activeWorkbenchWindow.isCoolbarVisible">
-                  		<equals
-                        	value="false">
-                  		</equals>
-               		</with>
-               		<with
-                    	 variable="activeWorkbenchWindow.isPerspectiveBarVisible">
-                  		<equals
-                        	value="false">
-                  		</equals>
-               		</with>
-               </or>
-            </visibleWhen>
          </command>
       </menuContribution>
       <menuContribution
@@ -2033,6 +2040,21 @@
                style="push">
          </command>
       </menuContribution>
+      <menuContribution
+            locationURI="popup:org.eclipse.ui.menus.showInMenu">
+ 	     <command
+             commandId="org.eclipse.ui.ide.showInSystemExplorer"
+             label="%command.showInSystemExplorer.menu.name"
+             mnemonic="%command.showInSystemExplorer.menu.mnemonic"
+             style="push">
+          <visibleWhen
+                checkEnabled="false">
+             <reference
+                   definitionId="org.eclipse.ui.ide.showInDefinition">
+             </reference>
+          </visibleWhen>
+         </command>
+      </menuContribution>
    </extension>
    <extension
          point="org.eclipse.ui.handlers">
@@ -2216,6 +2238,15 @@
             </iterate>
          </enabledWhen>
       </handler>
+      <handler
+            class="org.eclipse.ui.internal.ide.handlers.ShowInSystemExplorerHandler"
+            commandId="org.eclipse.ui.ide.showInSystemExplorer">
+         <enabledWhen>
+            <reference
+                  definitionId="org.eclipse.ui.ide.showInDefinition">
+            </reference>
+         </enabledWhen>
+      </handler>
    </extension>
    <extension
          point="org.eclipse.core.expressions.propertyTesters">
@@ -2268,6 +2299,13 @@
             properties="severity,type,superType,priority,done,message,resourceType"
             type="org.eclipse.core.resources.IMarker">
       </propertyTester>
+      <propertyTester
+            class="org.eclipse.ui.internal.ide.handlers.EditorInputPropertyTester"
+            id="org.eclipse.ui.ide.editorInputTester"
+            namespace="org.eclipse.ui.ide.editor"
+            properties="input"
+            type="org.eclipse.ui.IWorkbenchPart">
+      </propertyTester>
    </extension>
    <extension
          point="org.eclipse.core.resources.filterMatchers">
@@ -2319,6 +2357,26 @@
             class="org.eclipse.ui.internal.about.AboutFeaturesPage"
             id="20.FeaturesPage">
           </page>
+   </extension>
+   <extension
+         point="org.eclipse.core.expressions.definitions">
+      <definition
+            id="org.eclipse.ui.ide.showInDefinition">
+            <or>
+            <with variable="selection">
+                    <count value="1" />
+                    <iterate ifEmpty="false">
+                        <adapt type="org.eclipse.core.resources.IResource" />
+                    </iterate>
+             </with>
+            <with
+                  variable="activePart">
+               <test
+                     property="org.eclipse.ui.ide.editor.input">
+               </test>
+            </with>
+             </or>
+      </definition>
    </extension>
 
 </plugin>

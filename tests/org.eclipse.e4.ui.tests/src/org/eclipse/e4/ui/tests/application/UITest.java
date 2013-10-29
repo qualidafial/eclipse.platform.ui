@@ -35,6 +35,8 @@ public class UITest extends TestCase {
 		applicationContext = E4Application.createDefaultContext();
 		application.setContext(applicationContext);
 		applicationContext.set(MApplication.class, application);
+
+		E4Application.initializeServices(application);
 	}
 
 	@Override

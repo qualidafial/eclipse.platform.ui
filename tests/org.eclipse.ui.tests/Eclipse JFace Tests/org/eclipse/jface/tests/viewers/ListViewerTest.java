@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2008 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -74,7 +74,7 @@ public class ListViewerTest extends StructuredViewerTest {
     public void testRevealBug69076() {
     	// TODO remove the Mac OS check when SWT has fixed the bug in List.java
     	// see bug 116105
-    	if (Util.isCarbon()) {
+    	if (Util.isCarbon() || Util.isLinux()) {
     		return;
     	}
 		fViewer = null;

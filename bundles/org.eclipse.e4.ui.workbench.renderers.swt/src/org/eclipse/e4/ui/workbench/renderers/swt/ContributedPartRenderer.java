@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2012 IBM Corporation and others.
+ * Copyright (c) 2009, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,12 +11,10 @@
 package org.eclipse.e4.ui.workbench.renderers.swt;
 
 import javax.inject.Inject;
-import org.eclipse.e4.core.contexts.ContextInjectionFactory;
 import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.core.di.annotations.Optional;
 import org.eclipse.e4.core.services.contributions.IContributionFactory;
 import org.eclipse.e4.core.services.log.Logger;
-import org.eclipse.e4.ui.di.Focus;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.application.ui.advanced.MPlaceholder;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
@@ -94,30 +92,20 @@ public class ContributedPartRenderer extends SWTPartRenderer {
 					try {
 						// we are currently asking the part to take focus
 						beingFocused = true;
+
 						// delegate an attempt to set the focus here to the
 						// part's implementation (if there is one)
 						Object object = part.getObject();
-						if (object != null) {
-							ContextInjectionFactory.invoke(object, Focus.class,
-									part.getContext(), null);
+						if (object != null && isEnabled()) {
+							IPresentationEngine pe = part.getContext().get(
+									IPresentationEngine.class);
+							pe.focusGui(part);
 							return true;
 						}
 						return super.setFocus();
 					} finally {
 						// we are done, unset our flag
 						beingFocused = false;
-					}
-				}
-
-				if (logger != null) {
-					String id = part.getElementId();
-					if (id == null) {
-						logger.warn(new IllegalStateException(),
-								"Blocked recursive attempt to activate part " //$NON-NLS-1$
-										+ id);
-					} else {
-						logger.warn(new IllegalStateException(),
-								"Blocked recursive attempt to activate part"); //$NON-NLS-1$
 					}
 				}
 
@@ -152,14 +140,18 @@ public class ContributedPartRenderer extends SWTPartRenderer {
 		Composite c = (Composite) part.getWidget();
 
 		// Do we already have a label?
-		if (c.getChildren().length == 2) {
+		if (c.getChildren().length == 3) {
 			Label label = (Label) c.getChildren()[0];
 			if (description == null)
 				description = ""; //$NON-NLS-1$
 			// hide the label if there is no text to show
-			label.setVisible(!description.equals("")); //$NON-NLS-1$
+			boolean hasText = !description.equals(""); //$NON-NLS-1$
+			label.setVisible(hasText);
 			label.setText(description);
 			label.setToolTipText(description);
+
+			// also hide the separator
+			c.getChildren()[1].setVisible(hasText);
 			c.layout();
 		} else if (c.getChildren().length == 1) {
 			c.setLayout(new Layout() {
@@ -176,26 +168,34 @@ public class ContributedPartRenderer extends SWTPartRenderer {
 					if (composite.getChildren().length == 1) {
 						composite.getChildren()[0].setBounds(composite
 								.getBounds());
-					} else if (composite.getChildren().length == 2) {
+					} else if (composite.getChildren().length == 3) {
 						Label label = (Label) composite.getChildren()[0];
-						Control partCtrl = composite.getChildren()[1];
+						Label separator = (Label) composite.getChildren()[1];
+						Control partCtrl = composite.getChildren()[2];
 
 						// if the label is not visible, give it a zero size
 						int labelHeight = label.isVisible() ? label
 								.computeSize(bounds.width, SWT.DEFAULT).y : 0;
 						label.setBounds(0, 0, bounds.width, labelHeight);
 
-						partCtrl.setBounds(0, labelHeight, bounds.width,
-								bounds.height - labelHeight);
+						int separatorHeight = separator.isVisible() ? separator
+								.computeSize(bounds.width, SWT.DEFAULT).y : 0;
+						separator.setBounds(0, labelHeight, bounds.width,
+								separatorHeight);
+
+						partCtrl.setBounds(0, labelHeight + separatorHeight,
+								bounds.width, bounds.height - labelHeight
+										- separatorHeight);
 					}
 				}
 			});
 
-			Control partCtrl = c.getChildren()[0];
+			Label separator = new Label(c, SWT.SEPARATOR | SWT.HORIZONTAL);
+			separator.moveAbove(null);
 			Label label = new Label(c, SWT.NONE);
 			label.setText(description);
 			label.setToolTipText(description);
-			label.moveAbove(partCtrl);
+			label.moveAbove(null);
 			c.layout();
 		}
 	}

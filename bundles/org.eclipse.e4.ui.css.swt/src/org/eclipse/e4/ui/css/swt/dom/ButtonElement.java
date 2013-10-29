@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 Angelo Zerr and others.
+ * Copyright (c) 2009, 2012 Angelo Zerr and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -27,8 +27,10 @@ public class ButtonElement extends ControlElement {
 
 	private SelectionListener selectionListener = new SelectionAdapter() {
 		public void widgetSelected(SelectionEvent e) {
-			ButtonElement.this.isSelected = getButton().getSelection();
-			doApplyStyles();
+			if (!e.widget.isDisposed()) {
+				ButtonElement.this.isSelected = getButton().getSelection();
+				doApplyStyles();
+			}
 		}
 	};
 
@@ -53,10 +55,10 @@ public class ButtonElement extends ControlElement {
 
 		if (!dynamicEnabled) return; 
 		
-		
 		Button button = getButton();
-		// Remove selection listener
-		button.removeSelectionListener(selectionListener);
+		if (!button.isDisposed()) {
+			button.removeSelectionListener(selectionListener);
+		}
 	}
 
 	public boolean isPseudoInstanceOf(String s) {		

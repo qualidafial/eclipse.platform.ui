@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2009 Angelo Zerr and others.
+ * Copyright (c) 2008, 2012 Angelo Zerr and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -38,14 +38,6 @@ public abstract class AbstractCSSSWTEngineImpl extends CSSEngineImpl {
 	public AbstractCSSSWTEngineImpl(Display display, boolean lazyApplyingStyles) {
 		this.display = display;
 		
-		// Register SWT Element Provider to retrieve
-		// w3c Element SWTElement coming from SWT widget.
-		//super.setElementProvider(SWTElementProvider.INSTANCE);
-
-		/** Initialize CSS Property Handlers * */
-
-		this.initializeCSSPropertyHandlers();
-
 		/** Initialize SWT CSSValue converter * */
 
 		// Register SWT RGB CSSValue Converter
@@ -70,6 +62,7 @@ public abstract class AbstractCSSSWTEngineImpl extends CSSEngineImpl {
 			new CSSSWTApplyStylesListener(display, this);
 		}
 		
+		initializeCSSPropertyHandlers();
 //		SWTElement.setEngine(display, this);
 	}
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2008 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,6 +17,15 @@ import org.eclipse.e4.ui.model.application.ui.advanced.MPlaceholder;
  * <!-- begin-user-doc -->
  * A representation of the model object '<em><b>UI Element</b></em>'.
  * <!-- end-user-doc -->
+ *
+ * <!-- begin-model-doc -->
+ * <p>
+ * This is the base mix-in shared by all model elements that can be rendered into the
+ * UI presentation of the application. Its main job is to manage the bindings between
+ * the concrete element and the UI 'widget' representing it in the UI.
+ * </p>
+ * @since 1.0
+ * <!-- end-model-doc -->
  *
  * <p>
  * The following features are supported:
@@ -41,11 +50,13 @@ public interface MUIElement extends MApplicationElement {
 	/**
 	 * Returns the value of the '<em><b>Widget</b></em>' attribute.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Widget</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * This field represents the platform specific UI 'widget' that is representing this
+	 * UIElement on the screen. It will only be non-null when the element has been rendered.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Widget</em>' attribute.
 	 * @see #setWidget(Object)
 	 * @model transient="true" derived="true"
@@ -66,11 +77,12 @@ public interface MUIElement extends MApplicationElement {
 	/**
 	 * Returns the value of the '<em><b>Renderer</b></em>' attribute.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Renderer</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * This field tracks the specific renderer used to create the 'widget'.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Renderer</em>' attribute.
 	 * @see #setRenderer(Object)
 	 * @model transient="true" derived="true"
@@ -92,11 +104,16 @@ public interface MUIElement extends MApplicationElement {
 	 * Returns the value of the '<em><b>To Be Rendered</b></em>' attribute.
 	 * The default value is <code>"true"</code>.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>To Be Rendered</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * This field controls whether the given UIElement should be displayed within
+	 * the application. Note that due to lazy loading it is possible to have this field
+	 * set to true but to not have actually rendered the element itself (it does show up
+	 * as a tab on the appropiate stack but will only be rendered when that tab is
+	 * selected.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>To Be Rendered</em>' attribute.
 	 * @see #setToBeRendered(boolean)
 	 * @model default="true"
@@ -117,11 +134,15 @@ public interface MUIElement extends MApplicationElement {
 	/**
 	 * Returns the value of the '<em><b>On Top</b></em>' attribute.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>On Top</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * <strong>Developers</strong>:
+	 * Add more detailed documentation by editing this comment in 
+	 * org.eclipse.ui.model.workbench/model/UIElements.ecore. 
+	 * There is a GenModel/documentation node under each type and attribute.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>On Top</em>' attribute.
 	 * @see #setOnTop(boolean)
 	 * @model
@@ -143,11 +164,19 @@ public interface MUIElement extends MApplicationElement {
 	 * Returns the value of the '<em><b>Visible</b></em>' attribute.
 	 * The default value is <code>"true"</code>.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Visible</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * This field determines whether or not the given UIElement appears in the presentation
+	 * or whether it should be 'cached' for specialized use. Under normal circumstances
+	 * this flag should always be 'true'.
+	 * </p><p>
+	 * The MinMaxAddon uses this flag for example when a stack becomes minimized. By
+	 * setting the flag to false the stack's widget is cleanly removed from the UI but
+	 * is still 'rendered'. Once the widget has been cached the minimized stack can then
+	 * display the widget using its own technques.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Visible</em>' attribute.
 	 * @see #setVisible(boolean)
 	 * @model default="true"
@@ -169,11 +198,14 @@ public interface MUIElement extends MApplicationElement {
 	 * Returns the value of the '<em><b>Parent</b></em>' container reference.
 	 * It is bidirectional and its opposite is '{@link org.eclipse.e4.ui.model.application.ui.MElementContainer#getChildren <em>Children</em>}'.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Parent</em>' container reference isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * This field is a reference to this element's container. Note that while this field is valid
+	 * for most UIElements there are a few (such as TrimBars and the Windows associated
+	 * with top level windows and perspectives) where this will return 'null' 
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Parent</em>' container reference.
 	 * @see #setParent(MElementContainer)
 	 * @see org.eclipse.e4.ui.model.application.ui.MElementContainer#getChildren
@@ -195,11 +227,17 @@ public interface MUIElement extends MApplicationElement {
 	/**
 	 * Returns the value of the '<em><b>Container Data</b></em>' attribute.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Container Data</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * This is a persistend field that may be used by the <b>parent</b> element's renderer
+	 * to maintain any data that it needs to control the container. For example this is where
+	 * the SashRenderer stores the 'weight' of a particular element.
+	 * </p> <p>
+	 * <b>NOTE:</b> This field is effectively deprecated in favor of the parent renderer
+	 * simply adding a new keyed value to the UIElement's 'persistentData' map.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Container Data</em>' attribute.
 	 * @see #setContainerData(String)
 	 * @model
@@ -220,11 +258,14 @@ public interface MUIElement extends MApplicationElement {
 	/**
 	 * Returns the value of the '<em><b>Cur Shared Ref</b></em>' reference.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Cur Shared Ref</em>' reference isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * This is a transient (i.e. non-persisted) field which is used in conjunction with
+	 * MPlaceholders which are used to share elements actoss multiple perspectives. This
+	 * field will point back to the MPlaceholder (if any) currently hosting this one.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Cur Shared Ref</em>' reference.
 	 * @see #setCurSharedRef(MPlaceholder)
 	 * @model transient="true" derived="true"
@@ -245,11 +286,15 @@ public interface MUIElement extends MApplicationElement {
 	/**
 	 * Returns the value of the '<em><b>Visible When</b></em>' containment reference.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Visible When</em>' containment reference isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * <strong>Developers</strong>:
+	 * Add more detailed documentation by editing this comment in 
+	 * org.eclipse.ui.model.workbench/model/UIElements.ecore. 
+	 * There is a GenModel/documentation node under each type and attribute.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Visible When</em>' containment reference.
 	 * @see #setVisibleWhen(MExpression)
 	 * @model containment="true"
@@ -270,11 +315,14 @@ public interface MUIElement extends MApplicationElement {
 	/**
 	 * Returns the value of the '<em><b>Accessibility Phrase</b></em>' attribute.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Accessibility Phrase</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * This field is provided as a way to inform accessibility screen readers with extra
+	 * information. The intent is that the reader should 'say' this phrase as well as what
+	 * it would normally emit given the widget hierarchy.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Accessibility Phrase</em>' attribute.
 	 * @see #setAccessibilityPhrase(String)
 	 * @model
@@ -295,6 +343,14 @@ public interface MUIElement extends MApplicationElement {
 	/**
 	 * <!-- begin-user-doc -->
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * This field is intended to allow enhanced support for accessibility by providing the 
+	 * ability to have a screen reader 'say' this phrase along with its normal output.
+	 * This is currently unused in teh base SWT renderer but is available for use by
+	 * other rendering platforms...
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @model kind="operation"
 	 * @generated
 	 */

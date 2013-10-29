@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2010 IBM Corporation and others.
+ * Copyright (c) 2006, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -47,7 +47,7 @@ public abstract class ToolTip {
 
 	private ToolTipOwnerControlListener listener;
 
-	private HashMap data;
+	private HashMap<String, Object> data;
 
 	// Ensure that only one tooltip is active in time
 	private static Shell CURRENT_TOOLTIP;
@@ -147,7 +147,7 @@ public abstract class ToolTip {
 	 */
 	public void setData(String key, Object value) {
 		if (data == null) {
-			data = new HashMap();
+			data = new HashMap<String, Object>();
 		}
 		data.put(key, value);
 	}

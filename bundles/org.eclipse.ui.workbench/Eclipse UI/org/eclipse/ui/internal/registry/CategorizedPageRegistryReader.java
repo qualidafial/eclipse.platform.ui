@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2008 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,8 +16,9 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.StringTokenizer;
-
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.ui.internal.WorkbenchPlugin;
+import org.eclipse.ui.internal.misc.StatusUtil;
 
 /**
  * The CategorizedPageRegistryReader is the abstract super class
@@ -189,15 +190,25 @@ public abstract class CategorizedPageRegistryReader extends RegistryReader {
 		for (int i = 0; i < nodes.length; i++) {
 			CategoryNode categoryNode = nodes[i];
 			// Could not find the parent - log
-			WorkbenchPlugin
-					.log("Invalid preference page path: " + categoryNode.getFlatCategory()); //$NON-NLS-1$
+			WorkbenchPlugin.log(StatusUtil.newStatus(IStatus.WARNING,
+					invalidCategoryNodeMessage(categoryNode), null));
 			topLevelNodes.add(categoryNode.getNode());
 		}
 	}
 
 	/**
-	 * Get the category for the node if there is one. If there
-	 * isn't return <code>null</code>.
+	 * Return a warning message for an invalid category path.
+	 * 
+	 * @param categoryNode
+	 *            the unknown category node
+	 * @return an english string suitable for logging
+	 */
+	protected abstract String invalidCategoryNodeMessage(CategoryNode categoryNode);
+
+	/**
+	 * Get the category for the node if there is one. If there isn't return
+	 * <code>null</code>.
+	 * 
 	 * @param node
 	 * @return String or <code>null</code>.
 	 */

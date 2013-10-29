@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2011 IBM Corporation and others.
+ * Copyright (c) 2009, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,11 +10,12 @@
  *******************************************************************************/
 package org.eclipse.e4.ui.workbench.renderers.swt;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.inject.Inject;
+import javax.inject.Named;
 import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.ui.model.application.ui.MContext;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
@@ -30,23 +31,9 @@ import org.eclipse.swt.widgets.Control;
  * Create an element from a reference
  */
 public class ElementReferenceRenderer extends SWTPartRenderer {
-
-	private static Map<MUIElement, List<MPlaceholder>> renderedMap = new HashMap<MUIElement, List<MPlaceholder>>();
-
-	/**
-	 * Get the list of all place holders that reference the given element
-	 * 
-	 * @param element
-	 *            The element to get place holders for
-	 * @return The list of rendered place holders (may be null)
-	 */
-	public static List<MPlaceholder> getRenderedPlaceholders(MUIElement element) {
-		List<MPlaceholder> mapVal = renderedMap.get(element);
-		if (mapVal == null)
-			return new ArrayList<MPlaceholder>();
-
-		return mapVal;
-	}
+	@Inject
+	@Named(WorkbenchRendererFactory.SHARED_ELEMENTS_STORE)
+	Map<MUIElement, Set<MPlaceholder>> renderedMap;
 
 	@Inject
 	IPresentationEngine renderingEngine;
@@ -56,9 +43,9 @@ public class ElementReferenceRenderer extends SWTPartRenderer {
 		final MUIElement ref = ph.getRef();
 		ref.setCurSharedRef(ph);
 
-		List<MPlaceholder> renderedRefs = renderedMap.get(ref);
+		Set<MPlaceholder> renderedRefs = renderedMap.get(ref);
 		if (renderedRefs == null) {
-			renderedRefs = new ArrayList<MPlaceholder>();
+			renderedRefs = new HashSet<MPlaceholder>();
 			renderedMap.put(ref, renderedRefs);
 		}
 
@@ -104,7 +91,7 @@ public class ElementReferenceRenderer extends SWTPartRenderer {
 		Control refCtrl = (Control) refElement.getWidget();
 
 		// Remove the element ref from the rendered list
-		List<MPlaceholder> refs = renderedMap.get(refElement);
+		Set<MPlaceholder> refs = renderedMap.get(refElement);
 		refs.remove(ph);
 
 		IEclipseContext curContext = modelService.getContainingContext(ph);

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2007 IBM Corporation and others.
+ * Copyright (c) 2003, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -148,13 +148,15 @@ public class JobInfo extends JobTreeElement {
 			}
         }
 
-        // If equal prio, order by names
-        if (job.getPriority() == job2.getPriority()) {
+        int thisPriority = job.getPriority();
+		int otherPriority = job2.getPriority();
+		// If equal prio, order by names
+		if (thisPriority == otherPriority) {
             return job.getName().compareTo(job2.getName());
         }
 
         // order by priority
-        if (job.getPriority() > job2.getPriority()) {
+        if (thisPriority > otherPriority) {
 			return -1;
 		}
         return 1;
@@ -172,9 +174,13 @@ public class JobInfo extends JobTreeElement {
 		}
         JobInfo element = (JobInfo) arg0;
 
-        //If the receiver is cancelled then it is lowest priority
-        if (isCanceled() && !element.isCanceled()) {
+        boolean thisCanceled = isCanceled();
+		boolean anotherCanceled = element.isCanceled();
+		if (thisCanceled && !anotherCanceled) {
+			// If the receiver is cancelled then it is lowest priority
 			return 1;
+		} else if (!thisCanceled && anotherCanceled) {
+			return -1;
 		}
 
 		int thisState = getJob().getState();

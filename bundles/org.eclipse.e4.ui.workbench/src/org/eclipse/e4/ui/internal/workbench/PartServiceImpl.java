@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2011 IBM Corporation and others.
+ * Copyright (c) 2009, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,7 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Lars Vogel (Lars.Vogel@gmail.com) - Bug 416082
  ******************************************************************************/
 package org.eclipse.e4.ui.internal.workbench;
 
@@ -28,7 +29,6 @@ import org.eclipse.e4.core.di.InjectionException;
 import org.eclipse.e4.core.di.annotations.Optional;
 import org.eclipse.e4.core.services.events.IEventBroker;
 import org.eclipse.e4.core.services.log.Logger;
-import org.eclipse.e4.ui.di.Focus;
 import org.eclipse.e4.ui.di.Persist;
 import org.eclipse.e4.ui.model.application.MApplication;
 import org.eclipse.e4.ui.model.application.descriptor.basic.MPartDescriptor;
@@ -36,15 +36,15 @@ import org.eclipse.e4.ui.model.application.ui.MContext;
 import org.eclipse.e4.ui.model.application.ui.MElementContainer;
 import org.eclipse.e4.ui.model.application.ui.MGenericStack;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
+import org.eclipse.e4.ui.model.application.ui.advanced.MArea;
 import org.eclipse.e4.ui.model.application.ui.advanced.MPerspective;
 import org.eclipse.e4.ui.model.application.ui.advanced.MPlaceholder;
-import org.eclipse.e4.ui.model.application.ui.advanced.impl.AdvancedFactoryImpl;
 import org.eclipse.e4.ui.model.application.ui.basic.MInputPart;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.e4.ui.model.application.ui.basic.MPartStack;
 import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
-import org.eclipse.e4.ui.model.application.ui.basic.impl.BasicFactoryImpl;
 import org.eclipse.e4.ui.model.application.ui.menu.MToolBar;
+import org.eclipse.e4.ui.services.EContextService;
 import org.eclipse.e4.ui.services.IServiceConstants;
 import org.eclipse.e4.ui.workbench.IPresentationEngine;
 import org.eclipse.e4.ui.workbench.UIEvents;
@@ -52,7 +52,6 @@ import org.eclipse.e4.ui.workbench.modeling.EModelService;
 import org.eclipse.e4.ui.workbench.modeling.EPartService;
 import org.eclipse.e4.ui.workbench.modeling.IPartListener;
 import org.eclipse.e4.ui.workbench.modeling.ISaveHandler;
-import org.eclipse.e4.ui.workbench.modeling.ISaveHandler.Save;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.osgi.util.NLS;
@@ -124,6 +123,11 @@ public class PartServiceImpl implements EPartService {
 	@Inject
 	private IEventBroker eventBroker;
 
+	// @Optional as the context service may not have been installed
+	@Inject
+	@Optional
+	private EContextService contextService;
+
 	private PartActivationHistory partActivationHistory;
 
 	private MPart activePart;
@@ -150,19 +154,7 @@ public class PartServiceImpl implements EPartService {
 	@Inject
 	void setPart(@Optional @Named(IServiceConstants.ACTIVE_PART) MPart p) {
 		if (activePart != p) {
-			MPart lastActivePart = activePart;
-			activePart = p;
-
-			// no need to do anything if we have no listeners
-			if (constructed && !listeners.isEmpty()) {
-				if (lastActivePart != null && lastActivePart != activePart) {
-					firePartDeactivated(lastActivePart);
-				}
-
-				if (activePart != null) {
-					firePartActivated(activePart);
-				}
-			}
+			activate(p, true, true);
 		}
 	}
 
@@ -309,9 +301,24 @@ public class PartServiceImpl implements EPartService {
 				parent = currentElement.getParent();
 			}
 
+			// If the part is in the same stack as the currently active part then activate it
+			// instead
+			MElementContainer<MUIElement> activeParent = activePart != null ? activePart
+					.getParent() : null;
+			if (activePart != null && activeParent == null) {
+				MPlaceholder activePH = modelService.findPlaceholderFor(getWindow(), activePart);
+				if (activePH != null) {
+					activeParent = activePH.getParent();
+				}
+			}
+			if (parent == activeParent && part != activePart) {
+				activate(part);
+				return;
+			}
+
 			MUIElement oldSelectedElement = parent.getSelectedElement();
 
-			modelService.bringToTop(part);
+			delegateBringToTop(part);
 
 			// check to make sure that the currently selected element is actually valid
 			if (oldSelectedElement != currentElement
@@ -494,7 +501,7 @@ public class PartServiceImpl implements EPartService {
 				MPart candidate = partActivationHistory.getActivationCandidate(perspective);
 				if (candidate != null) {
 					modelService.bringToTop(candidate);
-					partActivationHistory.activate(candidate, false);
+					activate(candidate, true, false);
 					return;
 				}
 			}
@@ -504,6 +511,11 @@ public class PartServiceImpl implements EPartService {
 				modelService.bringToTop(perspective);
 				perspective.getContext().activate();
 			} else {
+				if ((modelService.getElementLocation(newActivePart) & EModelService.IN_SHARED_AREA) != 0) {
+					if (newActivePart.getParent().getSelectedElement() != newActivePart) {
+						newActivePart = (MPart) newActivePart.getParent().getSelectedElement();
+					}
+				}
 				activate(newActivePart, true, false);
 			}
 		}
@@ -532,6 +544,14 @@ public class PartServiceImpl implements EPartService {
 	}
 
 	private void activate(MPart part, boolean requiresFocus, boolean activateBranch) {
+		if (part == null) {
+			if (constructed && activePart != null) {
+				firePartDeactivated(activePart);
+			}
+			activePart = part;
+			return;
+		}
+
 		// only activate parts that is under our control
 		if (!isInContainer(part)) {
 			return;
@@ -547,31 +567,47 @@ public class PartServiceImpl implements EPartService {
 			UIEvents.publishEvent(UIEvents.UILifeCycle.ACTIVATE, part);
 			return;
 		}
+		if (contextService != null) {
+			contextService.deferUpdates(true);
+		}
 
-		// record any sibling into the activation history if necessary, this will allow it to be
-		// reselected again in the future as it will be an activation candidate in the future, this
-		// prevents other unrendered elements from being selected arbitrarily which would cause
-		// unwanted bundle activation
-		recordStackActivation(part);
+		MPart lastActivePart = activePart;
+		activePart = part;
 
-		modelService.bringToTop(part);
-		window.getParent().setSelectedElement(window);
+		if (constructed && lastActivePart != null && lastActivePart != activePart) {
+			firePartDeactivated(lastActivePart);
+		}
 
-		partActivationHistory.activate(part, activateBranch);
+		try {
+			// record any sibling into the activation history if necessary, this will allow it to be
+			// reselected again in the future as it will be an activation candidate in the future,
+			// this
+			// prevents other unrendered elements from being selected arbitrarily which would cause
+			// unwanted bundle activation
+			recordStackActivation(part);
 
-		Object object = part.getObject();
-		if (object != null && requiresFocus) {
-			try {
-				ContextInjectionFactory.invoke(object, Focus.class, part.getContext(), null);
-				UIEvents.publishEvent(UIEvents.UILifeCycle.ACTIVATE, part);
-			} catch (InjectionException e) {
-				log("Failed to grant focus to part", "Failed to grant focus to part ({0})", //$NON-NLS-1$ //$NON-NLS-2$
-						part.getElementId(), e);
-			} catch (RuntimeException e) {
-				log("Failed to grant focus to part via DI", //$NON-NLS-1$
-						"Failed to grant focus via DI to part ({0})", part.getElementId(), e); //$NON-NLS-1$
+			delegateBringToTop(part);
+			window.getParent().setSelectedElement(window);
+
+			partActivationHistory.activate(part, activateBranch);
+
+			if (requiresFocus) {
+				IPresentationEngine pe = part.getContext().get(IPresentationEngine.class);
+				pe.focusGui(part);
+			}
+
+			firePartActivated(part);
+			UIEvents.publishEvent(UIEvents.UILifeCycle.ACTIVATE, part);
+		} finally {
+			if (contextService != null) {
+				contextService.deferUpdates(false);
 			}
 		}
+	}
+
+	private void delegateBringToTop(MPart part) {
+		modelService.bringToTop(part);
+		createElement(part);
 	}
 
 	/**
@@ -625,21 +661,11 @@ public class PartServiceImpl implements EPartService {
 		return activePart;
 	}
 
-	private MPartDescriptor findDescriptor(String id) {
-		for (MPartDescriptor descriptor : application.getDescriptors()) {
-			if (descriptor.getElementId().equals(id)) {
-				return descriptor;
-			}
-		}
-		return null;
-	}
-
 	private MPart createPart(MPartDescriptor descriptor) {
 		if (descriptor == null) {
 			return null;
 		}
-
-		MPart part = BasicFactoryImpl.eINSTANCE.createPart();
+		MPart part = modelService.createModelElement(MPart.class);
 		part.setElementId(descriptor.getElementId());
 		part.getMenus().addAll(EcoreUtil.copyAll(descriptor.getMenus()));
 		if (descriptor.getToolbar() != null) {
@@ -653,12 +679,13 @@ public class PartServiceImpl implements EPartService {
 		part.setTooltip(descriptor.getTooltip());
 		part.getHandlers().addAll(EcoreUtil.copyAll(descriptor.getHandlers()));
 		part.getTags().addAll(descriptor.getTags());
+		part.getPersistedState().putAll(descriptor.getPersistedState());
 		part.getBindingContexts().addAll(descriptor.getBindingContexts());
 		return part;
 	}
 
 	public MPart createPart(String id) {
-		MPartDescriptor descriptor = findDescriptor(id);
+		MPartDescriptor descriptor = modelService.getPartDescriptor(id);
 		return createPart(descriptor);
 	}
 
@@ -682,11 +709,14 @@ public class PartServiceImpl implements EPartService {
 		}
 
 		if (sharedPart == null) {
-			MPartDescriptor descriptor = findDescriptor(id);
+			MPartDescriptor descriptor = modelService.getPartDescriptor(id);
 			sharedPart = createPart(descriptor);
 			if (sharedPart == null) {
 				return null;
 			}
+
+			// Replace the id to ensure that multi-instance parts work correctly
+			sharedPart.setElementId(id);
 
 			sharedWindow.getSharedElements().add(sharedPart);
 		}
@@ -696,7 +726,7 @@ public class PartServiceImpl implements EPartService {
 
 	private MPlaceholder createSharedPart(MPart sharedPart) {
 		// Create and return a reference to the shared part
-		MPlaceholder sharedPartRef = AdvancedFactoryImpl.eINSTANCE.createPlaceholder();
+		MPlaceholder sharedPartRef = modelService.createModelElement(MPlaceholder.class);
 		sharedPartRef.setElementId(sharedPart.getElementId());
 		sharedPartRef.setRef(sharedPart);
 		return sharedPartRef;
@@ -718,7 +748,30 @@ public class PartServiceImpl implements EPartService {
 	 * @see MPartDescriptor#isAllowMultiple()
 	 */
 	private MPart addPart(MPart providedPart, MPart localPart) {
-		MPartDescriptor descriptor = findDescriptor(providedPart.getElementId());
+		// If this is a multi-instance view see if there's a placeholder
+		String partId = providedPart.getElementId();
+		int colonIndex = partId == null ? -1 : partId.indexOf(':');
+		if (colonIndex >= 0) {
+			String descId = providedPart.getElementId().substring(0, colonIndex);
+			descId += ":*"; //$NON-NLS-1$
+			List<MPlaceholder> phList = modelService.findElements(workbenchWindow, descId,
+					MPlaceholder.class, null);
+			if (phList.size() > 0) {
+				MUIElement phParent = phList.get(0).getParent();
+				if (phParent instanceof MPartStack) {
+					MPartStack theStack = (MPartStack) phParent;
+					adjustPlaceholder(providedPart);
+					MPlaceholder placeholder = providedPart.getCurSharedRef();
+					if (placeholder == null) {
+						theStack.getChildren().add(providedPart);
+					} else {
+						theStack.getChildren().add(placeholder);
+					}
+
+				}
+			}
+		}
+		MPartDescriptor descriptor = modelService.getPartDescriptor(providedPart.getElementId());
 		if (descriptor == null) {
 			// there is no part descriptor backing the provided part, just add it to the container
 			// if it's not already there
@@ -748,17 +801,39 @@ public class PartServiceImpl implements EPartService {
 				if ("org.eclipse.e4.primaryDataStack".equals(category)) { //$NON-NLS-1$
 					MElementContainer<MUIElement> container = getContainer();
 					MUIElement area = modelService.find("org.eclipse.ui.editorss", container); //$NON-NLS-1$
-					List<MPartStack> sharedStacks = modelService.findElements(area, null,
-							MPartStack.class, null);
-					if (sharedStacks.size() > 0) {
-						for (MPartStack stack : sharedStacks) {
-							if (stack.isToBeRendered()) {
-								stack.getChildren().add(providedPart);
+
+					MPartStack activeStack = null;
+					if (area instanceof MPlaceholder
+							&& ((MPlaceholder) area).getRef() instanceof MArea) {
+						// Find the currently 'active' stack in the area
+						MArea a = (MArea) ((MPlaceholder) area).getRef();
+						MUIElement curActive = a.getSelectedElement();
+						while (curActive instanceof MElementContainer<?>) {
+							if (curActive instanceof MPartStack) {
+								activeStack = (MPartStack) curActive;
 								break;
 							}
+							MElementContainer<?> curContainer = (MElementContainer<?>) curActive;
+							curActive = curContainer.getSelectedElement();
 						}
+					}
+
+					if (activeStack != null) {
+						activeStack.getChildren().add(providedPart);
 					} else {
-						addToLastContainer(null, providedPart);
+						// Find the first visible stack in the area
+						List<MPartStack> sharedStacks = modelService.findElements(area, null,
+								MPartStack.class, null);
+						if (sharedStacks.size() > 0) {
+							for (MPartStack stack : sharedStacks) {
+								if (stack.isToBeRendered()) {
+									stack.getChildren().add(providedPart);
+									break;
+								}
+							}
+						} else {
+							addToLastContainer(null, providedPart);
+						}
 					}
 				} else {
 					List<MElementContainer> containers = modelService.findElements(getContainer(),
@@ -820,18 +895,18 @@ public class PartServiceImpl implements EPartService {
 		MElementContainer<MUIElement> searchRoot = getContainer();
 		List<MUIElement> children = searchRoot.getChildren();
 		if (children.size() == 0) {
-			MPartStack stack = BasicFactoryImpl.eINSTANCE.createPartStack();
+			MPartStack stack = modelService.createModelElement(MPartStack.class);
 			searchRoot.getChildren().add(stack);
 			return stack;
 		}
 
 		MElementContainer<?> lastContainer = getLastContainer(searchRoot, children);
 		if (lastContainer == null) {
-			MPartStack stack = BasicFactoryImpl.eINSTANCE.createPartStack();
+			MPartStack stack = modelService.createModelElement(MPartStack.class);
 			searchRoot.getChildren().add(stack);
 			return stack;
 		} else if (!(lastContainer instanceof MPartStack)) {
-			MPartStack stack = BasicFactoryImpl.eINSTANCE.createPartStack();
+			MPartStack stack = modelService.createModelElement(MPartStack.class);
 			((List) lastContainer.getChildren()).add(stack);
 			return stack;
 		}
@@ -925,7 +1000,7 @@ public class PartServiceImpl implements EPartService {
 
 		MPart part = findPart(id);
 		if (part == null) {
-			MPartDescriptor descriptor = findDescriptor(id);
+			MPartDescriptor descriptor = modelService.getPartDescriptor(id);
 			part = createPart(descriptor);
 			if (part == null) {
 				return null;
@@ -952,38 +1027,56 @@ public class PartServiceImpl implements EPartService {
 		case VISIBLE:
 			MPart activePart = getActivePart();
 			if (activePart == null || getParent(activePart) == getParent(addedPart)) {
+				delegateBringToTop(addedPart);
 				activate(addedPart);
 			} else {
 				bringToTop(addedPart);
 			}
 			return addedPart;
 		case CREATE:
-			MPlaceholder placeholder = addedPart.getCurSharedRef();
-			if (placeholder != null) {
-				addedPart.setToBeRendered(true);
-				createElement(placeholder);
-			} else {
-				createElement(addedPart);
-			}
+			createElement(addedPart);
 			return addedPart;
 		}
 		return addedPart;
 	}
 
 	private void createElement(MUIElement element) {
+		if (modelService.isHostedElement(element, workbenchWindow)) {
+			// assume the client has full control
+			return;
+		}
+
+		MPlaceholder placeholder = element.getCurSharedRef();
+		if (placeholder != null) {
+			element.setToBeRendered(true);
+			element = placeholder;
+		}
+
 		// render this element
 		element.setToBeRendered(true);
+
 		// render all of its parents
+		MUIElement parentWindow = workbenchWindow;
+		// determine the top parent that needs to be forcibly created
+		MUIElement target = null;
 		MElementContainer<MUIElement> parent = element.getParent();
-		while (parent != null) {
+		while (parent != null && parent != parentWindow) {
 			parent.setToBeRendered(true);
+			if (parent.getWidget() == null) {
+				target = parent;
+			}
 			parent = parent.getParent();
 		}
+		if (target != null) {
+			// force the element's parent hierarchy to be created
+			engine.createGui(target);
+		}
 		// ask the engine to create the element
-		engine.createGui(element);
+		if (element.getWidget() == null)
+			engine.createGui(element);
 
 		parent = element.getParent();
-		if (parent.getChildren().size() == 1) {
+		if (parent != null && parent.getChildren().size() == 1) {
 			// if we're the only child, set ourselves as the selected element
 			parent.setSelectedElement(element);
 		}
@@ -1036,33 +1129,37 @@ public class PartServiceImpl implements EPartService {
 						part);
 			}
 
-			if (parent.getSelectedElement() == toBeRemoved) {
-				// if we're the selected element and we're going to be hidden, need to select
-				// something else
-				MUIElement candidate = partActivationHistory.getSiblingSelectionCandidate(part);
-				candidate = candidate == null ? null
-						: candidate.getCurSharedRef() == null ? candidate : candidate
-								.getCurSharedRef();
-				if (candidate != null && children.contains(candidate)) {
-					parent.setSelectedElement(candidate);
-				} else {
-					for (MUIElement child : children) {
-						if (child != toBeRemoved && child.isToBeRendered()) {
-							parent.setSelectedElement(child);
-							break;
+			MPerspective thePersp = modelService.getPerspectiveFor(toBeRemoved);
+			boolean needNewSel = thePersp == null || !thePersp.getTags().contains("PerspClosing"); //$NON-NLS-1$
+			if (needNewSel) {
+				if (parent.getSelectedElement() == toBeRemoved) {
+					// if we're the selected element and we're going to be hidden, need to select
+					// something else
+					MUIElement candidate = partActivationHistory.getSiblingSelectionCandidate(part);
+					candidate = candidate == null ? null
+							: candidate.getCurSharedRef() == null ? candidate : candidate
+									.getCurSharedRef();
+					if (candidate != null && children.contains(candidate)) {
+						parent.setSelectedElement(candidate);
+					} else {
+						for (MUIElement child : children) {
+							if (child != toBeRemoved && child.isToBeRendered()) {
+								parent.setSelectedElement(child);
+								break;
+							}
 						}
 					}
 				}
-			}
 
-			if (activationCandidate == null) {
-				// nothing else to activate and we're the active child, deactivate
-				if (isActiveChild) {
-					part.getContext().deactivate();
+				if (activationCandidate == null) {
+					// nothing else to activate and we're the active child, deactivate
+					if (isActiveChild) {
+						part.getContext().deactivate();
+					}
+				} else {
+					// activate our candidate
+					activate(activationCandidate);
 				}
-			} else {
-				// activate our candidate
-				activate(activationCandidate);
 			}
 
 			if (toBeRemoved != null) {
@@ -1115,13 +1212,8 @@ public class PartServiceImpl implements EPartService {
 			return true;
 		}
 
-		if (confirm && saveHandler != null) {
-			switch (saveHandler.promptToSave(part)) {
-			case NO:
-				return true;
-			case CANCEL:
-				return false;
-			}
+		if (saveHandler != null) {
+			return saveHandler.save(part, confirm);
 		}
 
 		Object client = part.getObject();
@@ -1144,25 +1236,8 @@ public class PartServiceImpl implements EPartService {
 		if (dirtyParts.isEmpty()) {
 			return true;
 		}
-
-		if (confirm && saveHandler != null) {
-			List<MPart> dirtyPartsList = Collections.unmodifiableList(new ArrayList<MPart>(
-					dirtyParts));
-			Save[] decisions = saveHandler.promptToSave(dirtyPartsList);
-			for (Save decision : decisions) {
-				if (decision == Save.CANCEL) {
-					return false;
-				}
-			}
-
-			for (int i = 0; i < decisions.length; i++) {
-				if (decisions[i] == Save.YES) {
-					if (!savePart(dirtyPartsList.get(i), false)) {
-						return false;
-					}
-				}
-			}
-			return true;
+		if (saveHandler != null) {
+			return saveHandler.saveParts(dirtyParts, confirm);
 		}
 
 		for (MPart dirtyPart : dirtyParts) {

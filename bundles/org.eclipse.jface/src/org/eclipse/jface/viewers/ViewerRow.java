@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2009 IBM Corporation and others.
+ * Copyright (c) 2006, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,6 +13,7 @@
 
 package org.eclipse.jface.viewers;
 
+import org.eclipse.jface.util.Policy;
 import org.eclipse.swt.custom.StyleRange;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Font;
@@ -21,8 +22,6 @@ import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Widget;
-
-import org.eclipse.jface.util.Policy;
 
 /**
  * ViewerRow is the abstract superclass of the part that represents items in a
@@ -239,6 +238,7 @@ public abstract class ViewerRow implements Cloneable {
 	 */
 	public abstract TreePath getTreePath();
 
+	@Override
 	public abstract Object clone();
 
 	/**
@@ -246,6 +246,7 @@ public abstract class ViewerRow implements Cloneable {
 	 */
 	public abstract Object getElement();
 
+	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
@@ -254,6 +255,7 @@ public abstract class ViewerRow implements Cloneable {
 		return result;
 	}
 
+	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)
 			return true;
@@ -361,10 +363,6 @@ public abstract class ViewerRow implements Cloneable {
 		getItem().setData(getStyleRangesDataKey(columnIndex), styleRanges);
 	}
 
-	/**
-	 * @param columnIndex
-	 * @return
-	 */
 	private String getStyleRangesDataKey(int columnIndex) {
 		if (columnIndex == 0)
 			return KEY_TEXT_LAYOUT_0;

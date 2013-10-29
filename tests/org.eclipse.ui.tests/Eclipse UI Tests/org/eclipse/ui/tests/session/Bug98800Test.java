@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2005 IBM Corporation and others.
+ * Copyright (c) 2004, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -31,7 +31,11 @@ public class Bug98800Test extends TestCase {
 	private static final String VIEW_WITH_STATE_ID = "org.eclipse.ui.tests.session.ViewWithState";
 
 	public static TestSuite suite() {
-		return new TestSuite(Bug98800Test.class);
+		TestSuite ts = new TestSuite("org.eclipse.ui.tests.session.Bug98800Test");
+		ts.addTest(new Bug98800Test("testActivateView"));
+		ts.addTest(new Bug98800Test("testSecondOpening"));
+		ts.addTest(new Bug98800Test("testSavedMemento"));
+		return ts;
 	}
 
 	private IWorkbenchPage fPage;

@@ -75,6 +75,21 @@ public class ControlDecorationTests extends AbstractFieldAssistTestCase {
 		assertTwoShellsUp();
 	}
 	
+	public void XXXtestBug418420() {
+		AbstractFieldAssistWindow window = getFieldAssistWindow();
+		window.open();
+		ControlDecoration decoration = new ControlDecoration(window.getFieldAssistControl(), SWT.RIGHT);
+		decoration.setImage(FieldDecorationRegistry.getDefault()             
+		    .getFieldDecoration(FieldDecorationRegistry.DEC_INFORMATION).getImage());   
+		decoration.setDescriptionText("foo");   
+		decoration.setShowOnlyOnFocus(true);
+		// focus related tests.  Comment out for now.
+		// see 418420 and bug 275393
+		anotherControl.forceFocus();
+		decoration.showHoverText("Show me");
+		assertOneShellUp();
+	}
+	
 	/* (non-Javadoc)
 	 * @see org.eclipse.jface.tests.fieldassist.AbstractFieldAssistTestCase#createFieldAssistWindow()
 	 */

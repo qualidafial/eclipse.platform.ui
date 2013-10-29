@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -224,7 +224,8 @@ public abstract class ViewerDropAdapter extends DropTargetAdapter {
      * The drag has entered this widget's region.  See
      * if the drop should be allowed.
      */
-    public void dragEnter(DropTargetEvent event) {
+    @Override
+	public void dragEnter(DropTargetEvent event) {
         currentTarget = determineTarget(event);
         doDropValidation(event);
     }
@@ -234,7 +235,8 @@ public abstract class ViewerDropAdapter extends DropTargetAdapter {
      * The drop operation has changed, see if the action
      * should still be enabled.
      */
-    public void dragOperationChanged(DropTargetEvent event) {
+    @Override
+	public void dragOperationChanged(DropTargetEvent event) {
         currentTarget = determineTarget(event);
         doDropValidation(event);
     }
@@ -245,7 +247,8 @@ public abstract class ViewerDropAdapter extends DropTargetAdapter {
      * target item has changed, notify the action and check
      * that it is still enabled.
      */
-    public void dragOver(DropTargetEvent event) {
+    @Override
+	public void dragOver(DropTargetEvent event) {
     	//use newly revealed item as target if scrolling occurs
         Object target = determineTarget(event);
 
@@ -265,7 +268,8 @@ public abstract class ViewerDropAdapter extends DropTargetAdapter {
      * Method declared on DropTargetAdapter.
      * The user has dropped something on the desktop viewer.
      */
-    public void drop(DropTargetEvent event) {
+    @Override
+	public void drop(DropTargetEvent event) {
         currentLocation = determineLocation(event);
     	currentEvent = event;
 
@@ -286,7 +290,8 @@ public abstract class ViewerDropAdapter extends DropTargetAdapter {
      * Method declared on DropTargetAdapter.
      * Last chance for the action to disable itself
      */
-    public void dropAccept(DropTargetEvent event) {
+    @Override
+	public void dropAccept(DropTargetEvent event) {
     	currentEvent = event;
     	if (!validateDrop(currentTarget, event.detail, event.currentDataType)) {
             currentOperation = event.detail = DND.DROP_NONE;
@@ -407,7 +412,8 @@ public abstract class ViewerDropAdapter extends DropTargetAdapter {
      * @param exception the exception
      * @param event the event
      */
-    protected void handleException(Throwable exception, DropTargetEvent event) {
+    @Deprecated
+	protected void handleException(Throwable exception, DropTargetEvent event) {
         // Currently we never rethrow because VA/Java crashes if an SWT
         // callback throws anything. Generally catching Throwable is bad, but in
         // this cases it's better than hanging the image.

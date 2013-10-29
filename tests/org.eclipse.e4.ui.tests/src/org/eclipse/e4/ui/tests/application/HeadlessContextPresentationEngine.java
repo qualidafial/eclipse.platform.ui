@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2011 IBM Corporation and others.
+ * Copyright (c) 2009, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,12 +16,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import org.eclipse.core.runtime.Assert;
+import org.eclipse.e4.core.contexts.ContextInjectionFactory;
 import org.eclipse.e4.core.contexts.EclipseContextFactory;
 import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.core.services.contributions.IContributionFactory;
 import org.eclipse.e4.core.services.events.IEventBroker;
+import org.eclipse.e4.ui.di.Focus;
 import org.eclipse.e4.ui.internal.workbench.Activator;
 import org.eclipse.e4.ui.internal.workbench.Policy;
 import org.eclipse.e4.ui.model.application.MApplication;
@@ -84,32 +87,34 @@ public class HeadlessContextPresentationEngine implements IPresentationEngine {
 	void postConstruct() {
 		childHandler = new EventHandler() {
 			public void handleEvent(Event event) {
-				if (UIEvents.EventTypes.ADD.equals(event
-						.getProperty(UIEvents.EventTags.TYPE))) {
-					Object element = event
-							.getProperty(UIEvents.EventTags.NEW_VALUE);
-					if (element instanceof MUIElement) {
-						Object parent = event
-								.getProperty(UIEvents.EventTags.ELEMENT);
-						IEclipseContext parentContext = getParentContext((MUIElement) element);
-						if (element instanceof MContext) {
-							IEclipseContext context = ((MContext) element)
-									.getContext();
-							if (context != null
-									&& context.getParent() != parentContext) {
-								context.deactivate();
+				if (UIEvents.isADD(event)) {
+					for (Object element : UIEvents.asIterable(event,
+							UIEvents.EventTags.NEW_VALUE)) {
+						if (element instanceof MUIElement) {
+							Object parent = event
+									.getProperty(UIEvents.EventTags.ELEMENT);
+							IEclipseContext parentContext = getParentContext((MUIElement) element);
+							if (element instanceof MContext) {
+								IEclipseContext context = ((MContext) element)
+										.getContext();
+								if (context != null
+										&& context.getParent() != parentContext) {
+									context.deactivate();
+								}
 							}
-						}
-						createGui((MUIElement) element, parent, parentContext);
+							createGui((MUIElement) element, parent,
+									parentContext);
 
-						if (parent instanceof MPartStack) {
-							MPartStack stack = (MPartStack) parent;
-							List<MStackElement> children = stack.getChildren();
-							MStackElement stackElement = (MStackElement) element;
-							if (children.size() == 1
-									&& stackElement.isVisible()
-									&& stackElement.isToBeRendered()) {
-								stack.setSelectedElement(stackElement);
+							if (parent instanceof MPartStack) {
+								MPartStack stack = (MPartStack) parent;
+								List<MStackElement> children = stack
+										.getChildren();
+								MStackElement stackElement = (MStackElement) element;
+								if (children.size() == 1
+										&& stackElement.isVisible()
+										&& stackElement.isToBeRendered()) {
+									stack.setSelectedElement(stackElement);
+								}
 							}
 						}
 					}
@@ -125,17 +130,19 @@ public class HeadlessContextPresentationEngine implements IPresentationEngine {
 				Object element = event
 						.getProperty(UIEvents.EventTags.NEW_VALUE);
 				if (element instanceof MUIElement) {
-					MUIElement uiElement = (MUIElement) element;
-					IEclipseContext parentContext = getParentContext(uiElement);
 					Object parent = event
 							.getProperty(UIEvents.EventTags.ELEMENT);
-					createGui(uiElement, parent, parentContext);
+					if (parent instanceof MGenericStack) {
+						MUIElement uiElement = (MUIElement) element;
+						IEclipseContext parentContext = getParentContext(uiElement);
+						createGui(uiElement, parent, parentContext);
 
-					if (parent instanceof MPerspectiveStack) {
-						MPerspective perspective = (MPerspective) uiElement;
-						adjustPlaceholders(perspective);
-						parentContext.get(EPartService.class)
-								.switchPerspective(perspective);
+						if (parent instanceof MPerspectiveStack) {
+							MPerspective perspective = (MPerspective) uiElement;
+							adjustPlaceholders(perspective);
+							parentContext.get(EPartService.class)
+									.switchPerspective(perspective);
+						}
 					}
 				}
 			}
@@ -161,6 +168,13 @@ public class HeadlessContextPresentationEngine implements IPresentationEngine {
 
 		eventBroker.subscribe(UIEvents.UIElement.TOPIC_TOBERENDERED,
 				toBeRenderedHandler);
+	}
+
+	@PreDestroy
+	void preDestroy() {
+		eventBroker.unsubscribe(childHandler);
+		eventBroker.unsubscribe(activeChildHandler);
+		eventBroker.unsubscribe(toBeRenderedHandler);
 	}
 
 	private void adjustPlaceholders(MUIElement element) {
@@ -211,6 +225,16 @@ public class HeadlessContextPresentationEngine implements IPresentationEngine {
 			// if the element is not under the application, it should have a
 			// parent widget
 			Assert.isNotNull(parentWidget);
+		}
+
+		if (element.getWidget() != null) {
+			if (element instanceof MContext) {
+				IEclipseContext context = ((MContext) element).getContext();
+				if (context.getParent() != parentContext) {
+					context.setParent(parentContext);
+				}
+			}
+			return element.getWidget();
 		}
 
 		element.setRenderer(this);
@@ -370,6 +394,9 @@ public class HeadlessContextPresentationEngine implements IPresentationEngine {
 				context.dispose();
 			}
 		}
+
+		element.setRenderer(null);
+		element.setWidget(null);
 	}
 
 	private void removePlaceholder(MPlaceholder placeholder) {
@@ -424,5 +451,33 @@ public class HeadlessContextPresentationEngine implements IPresentationEngine {
 	 * @see org.eclipse.e4.ui.workbench.IPresentationEngine#stop()
 	 */
 	public void stop() {
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * org.eclipse.e4.ui.workbench.IPresentationEngine#focusGui(org.eclipse.
+	 * e4.ui.model.application.ui.MUIElement)
+	 */
+	public void focusGui(MUIElement element) {
+		Object implementation = element instanceof MContribution ? ((MContribution) element)
+				.getObject() : null;
+		if (implementation != null) {
+			IEclipseContext context = getContext(element);
+			Object defaultValue = new Object();
+			Object returnValue = ContextInjectionFactory.invoke(implementation,
+					Focus.class, context, defaultValue);
+			if (returnValue == defaultValue) {
+				System.err.println("No @Focus method");
+			}
+		}
+	}
+
+	private IEclipseContext getContext(MUIElement parent) {
+		if (parent instanceof MContext) {
+			return ((MContext) parent).getContext();
+		}
+		return modelService.getContainingContext(parent);
 	}
 }

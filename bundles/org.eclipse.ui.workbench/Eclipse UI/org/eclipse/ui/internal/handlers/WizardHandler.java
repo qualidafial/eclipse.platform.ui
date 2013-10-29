@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2008 IBM Corporation and others.
+ * Copyright (c) 2006, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,7 @@
  *******************************************************************************/
 package org.eclipse.ui.internal.handlers;
 
+import java.util.Map;
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
@@ -20,6 +21,7 @@ import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.wizard.WizardDialog;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
@@ -28,13 +30,16 @@ import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.IWorkbenchWizard;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.commands.IElementUpdater;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.internal.IWorkbenchHelpContextIds;
 import org.eclipse.ui.internal.LegacyResourceSupport;
+import org.eclipse.ui.internal.WorkbenchMessages;
 import org.eclipse.ui.internal.WorkbenchPlugin;
 import org.eclipse.ui.internal.dialogs.ImportExportWizard;
 import org.eclipse.ui.internal.dialogs.NewWizard;
 import org.eclipse.ui.internal.util.Util;
+import org.eclipse.ui.menus.UIElement;
 import org.eclipse.ui.wizards.IWizardDescriptor;
 import org.eclipse.ui.wizards.IWizardRegistry;
 
@@ -47,7 +52,7 @@ import org.eclipse.ui.wizards.IWizardRegistry;
  * 
  * @since 3.2
  */
-public abstract class WizardHandler extends AbstractHandler {
+public abstract class WizardHandler extends AbstractHandler implements IElementUpdater {
 
 	/**
 	 * Default handler for launching export wizards.
@@ -316,6 +321,19 @@ public abstract class WizardHandler extends AbstractHandler {
 			return (IStructuredSelection) selection;
 		}
 		return StructuredSelection.EMPTY;
+	}
+
+	public void updateElement(UIElement element, Map parameters) {
+
+		String wizardId = (String) parameters.get(getWizardIdParameterId());
+		if (wizardId == null)
+			return;
+		IWizardDescriptor wizard = getWizardRegistry().findWizard(wizardId);
+		if (wizard != null) {
+			element.setText(NLS.bind(WorkbenchMessages.WizardHandler_menuLabel, wizard.getLabel()));
+			element.setTooltip(wizard.getDescription());
+			element.setIcon(wizard.getImageDescriptor());
+		}
 	}
 
 	/**

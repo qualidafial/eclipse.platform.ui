@@ -638,6 +638,12 @@
             sequence="CTRL+Y"
             schemeId="org.eclipse.ui.emacsAcceleratorConfiguration" />
       <key
+            commandId="org.eclipse.ui.edit.paste"
+            contextId="org.eclipse.ui.contexts.dialogAndWindow"
+            sequence="CTRL+Y"
+            platform="gtk"
+            schemeId="org.eclipse.ui.emacsAcceleratorConfiguration" />
+      <key
             commandId="org.eclipse.ui.edit.selectAll"
             contextId="org.eclipse.ui.contexts.dialogAndWindow"
             sequence="CTRL+X H"
@@ -811,6 +817,11 @@
             name="%command.closeAll.name"/>
       <command
             categoryId="org.eclipse.ui.category.file"
+            description="%command.closeAllSaved.description"
+            id="org.eclipse.ui.file.closeAllSaved"
+            name="%command.closeAllSaved.name"/>
+      <command
+            categoryId="org.eclipse.ui.category.file"
             defaultHandler="org.eclipse.ui.internal.handlers.WizardHandler$Import"
             description="%command.import.description"
             id="org.eclipse.ui.file.import"
@@ -836,6 +847,7 @@
       <command
             name="%command.save.name"
             description="%command.save.description"
+            defaultHandler="org.eclipse.ui.internal.handlers.SaveHandler"
             categoryId="org.eclipse.ui.category.file"
             id="org.eclipse.ui.file.save" />
       <command
@@ -847,6 +859,7 @@
       <command
             name="%command.saveAll.name"
             description="%command.saveAll.description"
+            defaultHandler="org.eclipse.ui.internal.handlers.SaveAllHandler"
             categoryId="org.eclipse.ui.category.file"
             id="org.eclipse.ui.file.saveAll" />
       <command
@@ -1495,10 +1508,10 @@
          </description>
       </colorDefinition>
       <colorDefinition
-            label="%Color.hyperlinkText"
             categoryId="org.eclipse.ui.workbenchMisc"
-            value="COLOR_DARK_BLUE"
-            id="HYPERLINK_COLOR">
+            id="HYPERLINK_COLOR"
+            value="COLOR_LINK_FOREGROUND"
+            label="%Color.hyperlinkText">
          <description>
             %Color.hyperlinkTextDesc
          </description>
@@ -1506,11 +1519,22 @@
       <colorDefinition
             label="%Color.activeHyperlinkText"
             categoryId="org.eclipse.ui.workbenchMisc"
-            value="COLOR_BLUE"
             id="ACTIVE_HYPERLINK_COLOR">
          <description>
             %Color.activeHyperlinkTextDesc
          </description>
+         <colorFactory
+               class="org.eclipse.ui.internal.themes.RGBBrightnessColorFactory"
+               plugin="org.eclipse.ui">
+            <parameter
+                  name="color"
+                  value="COLOR_LINK_FOREGROUND">
+            </parameter>
+            <parameter
+                  name="scaleFactor"
+                  value="0.7">
+            </parameter>
+         </colorFactory>
       </colorDefinition>
          
      <colorDefinition
@@ -1832,19 +1856,6 @@
             class="org.eclipse.ui.internal.about.ConfigurationLogDefaultSection"
             id="10.DefaultSection">
       </section>
-   </extension>
-   <extension
-         point="org.eclipse.ui.presentationFactories">
-      <factory
-            name="%Presentation.default.name"
-            class="org.eclipse.ui.presentations.WorkbenchPresentationFactory"
-            id="org.eclipse.ui.presentations.default">
-      </factory>
-      <factory
-            class="org.eclipse.ui.internal.presentations.classic.WorkbenchPresentationFactoryClassic"
-            id="org.eclipse.ui.presentations.r30"
-            name="%Presentation.30.name">
-      </factory>
    </extension>
    <extension
          point="org.eclipse.ui.encodings">

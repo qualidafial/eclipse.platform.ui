@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2011 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -18,21 +18,17 @@ import java.util.List;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
-import javax.inject.Named;
 import org.eclipse.e4.core.contexts.IEclipseContext;
-import org.eclipse.e4.core.di.annotations.Optional;
 import org.eclipse.e4.core.services.events.IEventBroker;
 import org.eclipse.e4.core.services.log.Logger;
-import org.eclipse.e4.ui.internal.workbench.Activator;
 import org.eclipse.e4.ui.internal.workbench.E4Workbench;
-import org.eclipse.e4.ui.internal.workbench.Policy;
+import org.eclipse.e4.ui.internal.workbench.PartServiceSaveHandler;
 import org.eclipse.e4.ui.model.application.MApplication;
 import org.eclipse.e4.ui.model.application.ui.MContext;
 import org.eclipse.e4.ui.model.application.ui.MElementContainer;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
-import org.eclipse.e4.ui.model.application.ui.advanced.MPlaceholder;
+import org.eclipse.e4.ui.model.application.ui.advanced.MPerspective;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
-import org.eclipse.e4.ui.model.application.ui.basic.MPartStack;
 import org.eclipse.e4.ui.model.application.ui.basic.MTrimBar;
 import org.eclipse.e4.ui.model.application.ui.basic.MTrimmedWindow;
 import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
@@ -58,6 +54,8 @@ import org.eclipse.swt.events.DisposeEvent;
 import org.eclipse.swt.events.DisposeListener;
 import org.eclipse.swt.events.ShellAdapter;
 import org.eclipse.swt.events.ShellEvent;
+import org.eclipse.swt.events.TraverseEvent;
+import org.eclipse.swt.events.TraverseListener;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
@@ -110,67 +108,27 @@ public class WBWRenderer extends SWTPartRenderer {
 	@Inject
 	private IEventBroker eventBroker;
 
+	@Inject
+	private IPresentationEngine engine;
+
+	private EventHandler topWindowHandler;
 	private EventHandler shellUpdater;
 	private EventHandler visibilityHandler;
 	private EventHandler sizeHandler;
-	private EventHandler childHandler;
 
 	public WBWRenderer() {
 		super();
 	}
 
-	MPart activePart = null;
-
-	@Inject
-	void trackActivePart(@Optional @Named(IServiceConstants.ACTIVE_PART) MPart p) {
-		if (activePart == p) {
-			return;
-		}
-
-		if (activePart != null) {
-			activePart.getTags().remove("active"); //$NON-NLS-1$
-
-			MUIElement parent = activePart.getParent();
-			if (parent == null && activePart.getCurSharedRef() != null) {
-				MPlaceholder ph = activePart.getCurSharedRef();
-				parent = ph.getParent();
-			}
-			if (parent instanceof MPartStack) {
-				styleStack((MPartStack) parent, false);
-			} else {
-				if (activePart.getWidget() != null)
-					setCSSInfo(activePart, activePart.getWidget());
-			}
-		}
-
-		activePart = p;
-
-		if (activePart != null) {
-			activePart.getTags().add("active"); //$NON-NLS-1$
-			MUIElement parent = activePart.getParent();
-			if (parent == null && activePart.getCurSharedRef() != null) {
-				MPlaceholder ph = activePart.getCurSharedRef();
-				parent = ph.getParent();
-			}
-			if (parent instanceof MPartStack && parent.getWidget() != null) {
-				styleStack((MPartStack) parent, true);
-			} else if (activePart.getWidget() != null) {
-				setCSSInfo(activePart, activePart.getWidget());
-			}
-		}
-	}
-
-	private void styleStack(MPartStack stack, boolean active) {
-		if (!active)
-			stack.getTags().remove("active"); //$NON-NLS-1$
-		else
-			stack.getTags().add("active"); //$NON-NLS-1$
-
-		if (stack.getWidget() != null)
-			setCSSInfo(stack, stack.getWidget());
-	}
-
-	private void closeDetachedWindow(MWindow window) {
+	/**
+	 * Closes the provided detached window.
+	 * 
+	 * @param window
+	 *            the detached window to close
+	 * @return <code>true</code> if the window should be closed,
+	 *         <code>false</code> otherwise
+	 */
+	private boolean closeDetachedWindow(MWindow window) {
 		EPartService partService = (EPartService) window.getContext().get(
 				EPartService.class.getName());
 		List<MPart> parts = modelService.findElements(window, null,
@@ -179,7 +137,8 @@ public class WBWRenderer extends SWTPartRenderer {
 		// at all
 		for (MPart part : parts) {
 			if (!partService.savePart(part, true)) {
-				return;
+				// user cancelled the operation, return false
+				return false;
 			}
 		}
 
@@ -187,13 +146,38 @@ public class WBWRenderer extends SWTPartRenderer {
 		for (MPart part : parts) {
 			partService.hidePart(part);
 		}
-
-		// finally unrender the window itself
-		window.setToBeRendered(false);
+		return true;
 	}
 
 	@PostConstruct
 	public void init() {
+
+		topWindowHandler = new EventHandler() {
+
+			public void handleEvent(Event event) {
+				// Ensure that this event is for a MApplication
+				if (!(event.getProperty(UIEvents.EventTags.ELEMENT) instanceof MApplication))
+					return;
+				MWindow win = (MWindow) event
+						.getProperty(UIEvents.EventTags.NEW_VALUE);
+				if ((win == null) || !win.getTags().contains("topLevel")) //$NON-NLS-1$
+					return;
+				win.setToBeRendered(true);
+				if (!(win.getRenderer() == WBWRenderer.this))
+					return;
+				Shell shell = (Shell) win.getWidget();
+				if (shell.getMinimized()) {
+					shell.setMinimized(false);
+				}
+				shell.setActive();
+				shell.moveAbove(null);
+
+			}
+		};
+
+		eventBroker.subscribe(UIEvents.ElementContainer.TOPIC_SELECTEDELEMENT,
+				topWindowHandler);
+
 		shellUpdater = new EventHandler() {
 			public void handleEvent(Event event) {
 				// Ensure that this event is for a MMenuItem
@@ -307,47 +291,14 @@ public class WBWRenderer extends SWTPartRenderer {
 		};
 
 		eventBroker.subscribe(UIEvents.Window.TOPIC_ALL, sizeHandler);
-
-		childHandler = new EventHandler() {
-			public void handleEvent(Event event) {
-				// Track additions/removals of the active part and keep its
-				// stack styled correctly
-				Object changedObj = event
-						.getProperty(UIEvents.EventTags.ELEMENT);
-				if (!(changedObj instanceof MPartStack))
-					return;
-				MPartStack stack = (MPartStack) changedObj;
-
-				String eventType = (String) event
-						.getProperty(UIEvents.EventTags.TYPE);
-				if (UIEvents.EventTypes.ADD.equals(eventType)) {
-					MUIElement added = (MUIElement) event
-							.getProperty(UIEvents.EventTags.NEW_VALUE);
-					if (added == activePart) {
-						styleStack(stack, true);
-					}
-				} else if (UIEvents.EventTypes.REMOVE.equals(eventType)) {
-					Activator.trace(Policy.DEBUG_RENDERER,
-							"Child Removed", null); //$NON-NLS-1$
-					MUIElement removed = (MUIElement) event
-							.getProperty(UIEvents.EventTags.OLD_VALUE);
-					if (removed == activePart) {
-						styleStack(stack, false);
-					}
-				}
-			}
-		};
-
-		eventBroker.subscribe(UIEvents.ElementContainer.TOPIC_CHILDREN,
-				childHandler);
 	}
 
 	@PreDestroy
 	public void contextDisposed() {
+		eventBroker.unsubscribe(topWindowHandler);
 		eventBroker.unsubscribe(shellUpdater);
 		eventBroker.unsubscribe(visibilityHandler);
 		eventBroker.unsubscribe(sizeHandler);
-		eventBroker.unsubscribe(childHandler);
 	}
 
 	public Object createWidget(MUIElement element, Object parent) {
@@ -377,8 +328,17 @@ public class WBWRenderer extends SWTPartRenderer {
 			wbwShell = new Shell(parentShell, SWT.BORDER | rtlStyle);
 			wbwShell.setAlpha(110);
 		} else {
-			wbwShell = new Shell(parentShell, SWT.TOOL | SWT.TITLE | SWT.RESIZE
-					| rtlStyle);
+			wbwShell = new Shell(parentShell, SWT.TITLE | SWT.RESIZE | SWT.MAX
+					| SWT.CLOSE | rtlStyle);
+
+			// Prevent ESC from closing the DW
+			wbwShell.addTraverseListener(new TraverseListener() {
+				public void keyTraversed(TraverseEvent e) {
+					if (e.detail == SWT.TRAVERSE_ESCAPE) {
+						e.doit = false;
+					}
+				}
+			});
 		}
 
 		wbwShell.setBackgroundMode(SWT.INHERIT_DEFAULT);
@@ -436,7 +396,7 @@ public class WBWRenderer extends SWTPartRenderer {
 				return wbwShell;
 			}
 		});
-		localContext.set(ISaveHandler.class, new ISaveHandler() {
+		final PartServiceSaveHandler saveHandler = new PartServiceSaveHandler() {
 			public Save promptToSave(MPart dirtyPart) {
 				Shell shell = (Shell) context
 						.get(IServiceConstants.ACTIVE_SHELL);
@@ -464,14 +424,21 @@ public class WBWRenderer extends SWTPartRenderer {
 				}
 				return response;
 			}
-		});
+		};
+		saveHandler.logger = logger;
+		localContext.set(ISaveHandler.class, saveHandler);
 
 		if (wbwModel.getLabel() != null)
 			wbwShell.setText(wbwModel.getLocalizedLabel());
 
-		wbwShell.setImage(getImage(wbwModel));
-		// TODO: This should be added to the model, see bug 308494
-		wbwShell.setImages(Window.getDefaultImages());
+		if (wbwModel.getIconURI() != null && wbwModel.getIconURI().length() > 0) {
+			wbwShell.setImage(getImage(wbwModel));
+		} else {
+			// TODO: This should be added to the model, see bug 308494
+			// it allows for a range of icon sizes that the platform gets to
+			// choose from
+			wbwShell.setImages(Window.getDefaultImages());
+		}
 
 		return newWidget;
 	}
@@ -483,8 +450,7 @@ public class WBWRenderer extends SWTPartRenderer {
 			context.set(IWindowCloseHandler.class.getName(),
 					new IWindowCloseHandler() {
 						public boolean close(MWindow window) {
-							closeDetachedWindow(window);
-							return false;
+							return closeDetachedWindow(window);
 						}
 					});
 		} else {
@@ -541,12 +507,16 @@ public class WBWRenderer extends SWTPartRenderer {
 
 			shell.addShellListener(new ShellAdapter() {
 				public void shellClosed(ShellEvent e) {
+					// override the shell close event
+					e.doit = false;
 					MWindow window = (MWindow) e.widget.getData(OWNING_ME);
 					IWindowCloseHandler closeHandler = (IWindowCloseHandler) window
 							.getContext().get(
 									IWindowCloseHandler.class.getName());
-					if (closeHandler != null) {
-						e.doit = closeHandler.close(window);
+					// if there's no handler or the handler permits the close
+					// request, clean-up as necessary
+					if (closeHandler == null || closeHandler.close(window)) {
+						cleanUp(window);
 					}
 				}
 			});
@@ -565,6 +535,34 @@ public class WBWRenderer extends SWTPartRenderer {
 					}
 				}
 			});
+		}
+	}
+
+	private void cleanUp(MWindow window) {
+		Object parent = ((EObject) window).eContainer();
+		if (parent instanceof MApplication) {
+			MApplication application = (MApplication) parent;
+			List<MWindow> children = application.getChildren();
+			if (children.size() > 1) {
+				// not the last window, destroy and remove
+				window.setToBeRendered(false);
+				children.remove(window);
+			} else {
+				// last window, just destroy without changing the model
+				engine.removeGui(window);
+			}
+		} else if (parent != null) {
+			window.setToBeRendered(false);
+			// this is a detached window, check for parts
+			if (modelService.findElements(window, null, MPart.class, null)
+					.isEmpty()) {
+				// if no parts, remove it
+				if (parent instanceof MWindow) {
+					((MWindow) parent).getWindows().remove(window);
+				} else if (parent instanceof MPerspective) {
+					((MPerspective) parent).getWindows().remove(window);
+				}
+			}
 		}
 	}
 
@@ -601,8 +599,17 @@ public class WBWRenderer extends SWTPartRenderer {
 		if (wbwModel instanceof MTrimmedWindow) {
 			Shell shell = (Shell) wbwModel.getWidget();
 			MTrimmedWindow tWindow = (MTrimmedWindow) wbwModel;
-			for (MTrimBar trimBar : tWindow.getTrimBars()) {
+			List<MTrimBar> trimBars = new ArrayList<MTrimBar>(
+					tWindow.getTrimBars());
+			for (MTrimBar trimBar : trimBars) {
 				renderer.createGui(trimBar, shell, wbwModel.getContext());
+				// bug 387161: hack around that createGui(e, parent, context)
+				// does not reparent the element widget to the
+				// limbo shell wheb visible=false
+				if (!trimBar.isVisible()) {
+					trimBar.setVisible(true);
+					trimBar.setVisible(false);
+				}
 			}
 		}
 	}

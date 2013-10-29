@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2008 IBM Corporation and others.
+ * Copyright (c) 2003, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -62,19 +62,19 @@ public class ColorRegistry extends ResourceRegistry {
      * Collection of <code>Color</code> that are now stale to be disposed when 
      * it is safe to do so (i.e. on shutdown).
      */
-    private List staleColors = new ArrayList();
+    private List<Color> staleColors = new ArrayList<Color>();
 
     /**
      * Table of known colors, keyed by symbolic color name (key type: <code>String</code>,
      * value type: <code>org.eclipse.swt.graphics.Color</code>.
      */
-    private Map stringToColor = new HashMap(7);
+    private Map<String, Color> stringToColor = new HashMap<String, Color>(7);
 
     /**
      * Table of known color data, keyed by symbolic color name (key type:
      * <code>String</code>, value type: <code>org.eclipse.swt.graphics.RGB</code>).
      */
-    private Map stringToRGB = new HashMap(7);
+    private Map<String, RGB> stringToRGB = new HashMap<String, RGB>(7);
 
     /**
      * Runnable that cleans up the manager on disposal of the display.
@@ -151,7 +151,7 @@ public class ColorRegistry extends ResourceRegistry {
      * 
      * @param iterator over <code>Collection</code> of <code>Color</code>
      */
-    private void disposeColors(Iterator iterator) {
+    private void disposeColors(Iterator<Color> iterator) {
         while (iterator.hasNext()) {
             Object next = iterator.next();
             ((Color) next).dispose();
@@ -190,7 +190,8 @@ public class ColorRegistry extends ResourceRegistry {
     /* (non-Javadoc)
      * @see org.eclipse.jface.resource.ResourceRegistry#getKeySet()
      */
-    public Set getKeySet() {
+    @Override
+	public Set<String> getKeySet() {
         return Collections.unmodifiableSet(stringToRGB.keySet());
     }
 
@@ -203,7 +204,7 @@ public class ColorRegistry extends ResourceRegistry {
      */
     public RGB getRGB(String symbolicName) {
         Assert.isNotNull(symbolicName);
-        return (RGB) stringToRGB.get(symbolicName);
+        return stringToRGB.get(symbolicName);
     }
     
     /**
@@ -246,7 +247,8 @@ public class ColorRegistry extends ResourceRegistry {
 	 * 
 	 * @see org.eclipse.jface.resource.ResourceRegistry#clearCaches()
 	 */
-    protected void clearCaches() {
+    @Override
+	protected void clearCaches() {
         disposeColors(stringToColor.values().iterator());
         disposeColors(staleColors.iterator());
         stringToColor.clear();
@@ -257,7 +259,8 @@ public class ColorRegistry extends ResourceRegistry {
     /* (non-Javadoc)
      * @see org.eclipse.jface.resource.ResourceRegistry#hasValueFor(java.lang.String)
      */
-    public boolean hasValueFor(String colorKey) {
+    @Override
+	public boolean hasValueFor(String colorKey) {
         return stringToRGB.containsKey(colorKey);
     }
 
@@ -304,12 +307,12 @@ public class ColorRegistry extends ResourceRegistry {
         Assert.isNotNull(symbolicName);
         Assert.isNotNull(colorData);
 
-        RGB existing = (RGB) stringToRGB.get(symbolicName);
+        RGB existing = stringToRGB.get(symbolicName);
         if (colorData.equals(existing)) {
 			return;
 		}
 
-        Color oldColor = (Color) stringToColor.remove(symbolicName);
+        Color oldColor = stringToColor.remove(symbolicName);
         stringToRGB.put(symbolicName, colorData);
         if (update) {
 			fireMappingChanged(symbolicName, existing, colorData);

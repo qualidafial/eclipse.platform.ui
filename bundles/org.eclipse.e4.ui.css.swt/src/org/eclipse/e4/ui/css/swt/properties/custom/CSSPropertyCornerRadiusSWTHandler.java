@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,8 +14,8 @@ import java.lang.reflect.Method;
 import org.eclipse.e4.ui.css.core.dom.properties.ICSSPropertyHandler;
 import org.eclipse.e4.ui.css.core.engine.CSSEngine;
 import org.eclipse.e4.ui.css.swt.properties.AbstractCSSPropertySWTHandler;
-import org.eclipse.e4.ui.widgets.CTabFolder;
-import org.eclipse.e4.ui.widgets.CTabFolderRenderer;
+import org.eclipse.swt.custom.CTabFolder;
+import org.eclipse.swt.custom.CTabFolderRenderer;
 import org.eclipse.swt.widgets.Control;
 import org.w3c.dom.css.CSSPrimitiveValue;
 import org.w3c.dom.css.CSSValue;
@@ -31,8 +31,10 @@ public class CSSPropertyCornerRadiusSWTHandler extends AbstractCSSPropertySWTHan
 		if (value.getCssValueType() == CSSValue.CSS_PRIMITIVE_VALUE) {
 			int radiusValue = (int) ((CSSPrimitiveValue) value).getFloatValue(CSSPrimitiveValue.CSS_NUMBER);
 			CTabFolderRenderer renderer = ((CTabFolder) control).getRenderer();
-			Method m = renderer.getClass().getMethod("setCornerRadius", new Class[]{int.class});
-			m.invoke(renderer, radiusValue);
+			try {
+				Method m = renderer.getClass().getMethod("setCornerRadius", new Class[]{int.class});
+				m.invoke(renderer, radiusValue);
+			} catch(NoSuchMethodException e) {/*IGNORED*/}
 		}
 	}
 	

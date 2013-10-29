@@ -22,15 +22,23 @@
               beforefragment="true"
               class="org.eclipse.ui.internal.BindingToModelProcessor">
         </processor>
+         <processor
+               beforefragment="true"
+               class="org.eclipse.ui.internal.ModelMigrationProcessor">
+         </processor>
      </extension>
    <extension
-         point="org.eclipse.e4.ui.css.swt.property.handler">
+         point="org.eclipse.e4.ui.css.core.propertyHandler">
       <handler
             adapter="org.eclipse.e4.ui.css.swt.dom.CompositeElement"
             composite="false"
             handler="org.eclipse.e4.ui.workbench.addons.perspectiveswitcher.PerspectiveSwitcherCSSHandler">
          <property-name
-               name="perspective-keyline-color">
+               name="eclipse-perspective-keyline-color">
+         </property-name>
+         <property-name
+               name="perspective-keyline-color"
+               deprecated="renamed as eclipse-perspective-keyline-color">
          </property-name>
       </handler>
    </extension>

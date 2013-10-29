@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,8 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Christian Walther (Indel AG) - Bug 399458: Fix layout overlap in line-wrapped trim bar
+ *     Christian Walther (Indel AG) - Bug 389012: Fix division by zero in TrimBarLayout
  *******************************************************************************/
 package org.eclipse.e4.ui.workbench.renderers.swt;
 
@@ -16,6 +18,8 @@ import java.util.List;
 import java.util.Map;
 import org.eclipse.e4.ui.internal.workbench.swt.AbstractPartRenderer;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
+import org.eclipse.e4.ui.model.application.ui.basic.MTrimBar;
+import org.eclipse.e4.ui.model.application.ui.basic.MTrimElement;
 import org.eclipse.e4.ui.model.application.ui.menu.MToolBar;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Point;
@@ -91,6 +95,13 @@ public class TrimBarLayout extends Layout {
 		// Clear the current cache
 		lines.clear();
 
+		// First, hide any empty toolbars
+		MTrimBar bar = (MTrimBar) composite
+				.getData(AbstractPartRenderer.OWNING_ME);
+		for (MTrimElement te : bar.getChildren()) {
+			hideManagedTB(te);
+		}
+
 		int totalMajor = horizontal ? wHint - (marginLeft + marginRight)
 				: hHint - (marginTop + marginBottom);
 		int totalMinor = 0;
@@ -137,23 +148,18 @@ public class TrimBarLayout extends Layout {
 		totalMinor += horizontal ? (marginTop + marginBottom)
 				+ totalWrapSpacing : (marginLeft + marginRight)
 				+ totalWrapSpacing;
-		return horizontal ? new Point(wHint, totalMinor) : new Point(
+		Point calcSize = horizontal ? new Point(wHint, totalMinor) : new Point(
 				totalMinor, hHint);
+		return calcSize;
 	}
 
 	private Point computeSize(Control ctrl) {
 		Point ctrlSize = ctrl.computeSize(SWT.DEFAULT, SWT.DEFAULT);
 
 		// Hack! the StatusLine doesn't compute a useable size
-		if (isStatusLine(ctrl))
+		if (isStatusLine(ctrl)) {
 			ctrlSize.x = 375;
-
-		if (ctrl instanceof ToolBar) {
-			ToolBar tb = (ToolBar) ctrl;
-			if (tb.getItemCount() == 0)
-				return new Point(0, 0);
-		} else if (ctrl instanceof Composite && hideManagedTB((Composite) ctrl)) {
-			return new Point(0, 0);
+			ctrlSize.y = 26;
 		}
 
 		return ctrlSize;
@@ -164,25 +170,32 @@ public class TrimBarLayout extends Layout {
 	 * we <b>must</b> leave 'empty' toolbars in the trim. This code detects this
 	 * particular scenario and hides any TB's of this type...
 	 * 
-	 * @param tbComp
-	 *            The proposed composite in the trim
-	 * @return <code>true</code> iff this composite represents an empty managed
+	 * @param te
+	 *            The proposed trim element
+	 * @return <code>true</code> iff this element represents an empty managed
 	 *         TB.
 	 */
-	private boolean hideManagedTB(Composite tbComp) {
-		if (!(tbComp.getData(AbstractPartRenderer.OWNING_ME) instanceof MToolBar))
-			return false;
-		MToolBar tbModel = (MToolBar) tbComp
-				.getData(AbstractPartRenderer.OWNING_ME);
-		if (!(tbModel.getRenderer() instanceof ToolBarManagerRenderer))
+	private boolean hideManagedTB(MTrimElement te) {
+		if (!(te instanceof MToolBar)
+				|| !(te.getRenderer() instanceof ToolBarManagerRenderer))
 			return false;
 
-		Control[] kids = tbComp.getChildren();
-		if (kids.length != 2 || !(kids[1] instanceof ToolBar))
+		if (!(te.getWidget() instanceof Composite))
 			return false;
 
-		boolean barVisible = ((ToolBar) kids[1]).getItemCount() > 0;
-		tbComp.setVisible(barVisible);
+		Composite teComp = (Composite) te.getWidget();
+		Control[] kids = teComp.getChildren();
+		if (kids.length != 1 || !(kids[0] instanceof ToolBar))
+			return false;
+
+		boolean barVisible = ((ToolBar) kids[0]).getItemCount() > 0;
+
+		// HACK! The trim dragging code uses the visible attribute as well
+		// this is a local 'lock' to prevent the layout from messing with it
+		if (!te.getTags().contains("LockVisibility")) { //$NON-NLS-1$
+			te.setVisible(barVisible);
+		}
+
 		return !barVisible;
 	}
 
@@ -210,7 +223,7 @@ public class TrimBarLayout extends Layout {
 			if (horizontal)
 				bounds.y += curLine.minor + wrapSpacing;
 			else
-				bounds.x += curLine.minor = wrapSpacing;
+				bounds.x += curLine.minor + wrapSpacing;
 		}
 	}
 
@@ -221,36 +234,48 @@ public class TrimBarLayout extends Layout {
 	private void tileLine(TrimLine curLine, Rectangle bounds) {
 		int curX = bounds.x;
 		int curY = bounds.y;
+		int remainingExtraSpace = curLine.extraSpace;
+		int remainingSpacerCount = curLine.spacerCount;
 		for (Control ctrl : curLine.ctrls) {
 			if (ctrl.isDisposed()) {
 				continue;
 			}
 			Point ctrlSize = curLine.sizeMap.get(ctrl);
-			boolean zeroSize = ctrlSize.x == 0 && ctrlSize.y == 0;
+			int ctrlWidth = ctrlSize.x;
+			int ctrlHeight = ctrlSize.y;
+			boolean zeroSize = ctrlWidth == 0 && ctrlHeight == 0;
 
 			// If its a 'spacer' then add any available 'extra' space to it
 			if (isSpacer(ctrl)) {
-				int extra = curLine.extraSpace / curLine.spacerCount--;
-				if (horizontal)
-					ctrlSize.x += extra;
-				else
-					ctrlSize.y += extra;
-
-				curLine.extraSpace -= extra;
-				curLine.spacerCount--;
+				int extra = remainingExtraSpace / remainingSpacerCount;
+				if (horizontal) {
+					ctrlWidth += extra;
+					// leave out 4 pixels at the bottom to avoid overlapping the
+					// 1px bottom border of the toolbar (bug 389941)
+					ctrl.setBounds(curX, curY, ctrlWidth, curLine.minor - 4);
+				} else {
+					ctrlHeight += extra;
+					ctrl.setBounds(curX, curY, curLine.minor, ctrlHeight);
+				}
+				zeroSize = false;
+				remainingExtraSpace -= extra;
+				remainingSpacerCount--;
 			}
 
 			if (horizontal) {
-				int offset = (curLine.minor - ctrlSize.y) / 2;
-				if (!zeroSize)
-					ctrl.setBounds(curX, curY + offset, ctrlSize.x, ctrlSize.y);
-				else
-					ctrl.setBounds(curX, curY, 0, 0);
-				curX += ctrlSize.x;
+				int offset = (curLine.minor - ctrlHeight) / 2;
+				if (!isSpacer(ctrl)) {
+					if (!zeroSize)
+						ctrl.setBounds(curX, curY + offset, ctrlWidth,
+								ctrlHeight);
+					else
+						ctrl.setBounds(curX, curY, 0, 0);
+				}
+				curX += ctrlWidth;
 			} else {
-				int offset = (curLine.minor - ctrlSize.x) / 2;
-				ctrl.setBounds(curX + offset, curY, ctrlSize.x, ctrlSize.y);
-				curY += ctrlSize.y;
+				int offset = (curLine.minor - ctrlWidth) / 2;
+				ctrl.setBounds(curX + offset, curY, ctrlWidth, ctrlHeight);
+				curY += ctrlHeight;
 			}
 		}
 	}
@@ -281,5 +306,25 @@ public class TrimBarLayout extends Layout {
 			return true;
 
 		return false;
+	}
+
+	/**
+	 * @param trimPos
+	 * @return
+	 */
+	public Control ctrlFromPoint(Composite trimComp, Point trimPos) {
+		if (trimComp == null || trimComp.isDisposed() || lines == null
+				|| lines.size() == 0)
+			return null;
+
+		Control[] kids = trimComp.getChildren();
+		for (int i = 0; i < kids.length; i++) {
+			if (kids[i].isDisposed())
+				continue;
+			if (kids[i].getBounds().contains(trimPos))
+				return kids[i];
+		}
+
+		return null;
 	}
 }

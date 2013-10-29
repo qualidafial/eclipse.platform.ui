@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2010 IBM Corporation and others.
+ * Copyright (c) 2009, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -23,9 +23,9 @@ import org.eclipse.e4.ui.model.application.ui.basic.MPartSashContainer;
 import org.eclipse.e4.ui.model.application.ui.basic.MPartStack;
 import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
 import org.eclipse.e4.ui.model.application.ui.basic.impl.BasicFactoryImpl;
-import org.eclipse.e4.ui.widgets.CTabFolder;
-import org.eclipse.e4.ui.widgets.CTabItem;
 import org.eclipse.e4.ui.workbench.IPresentationEngine;
+import org.eclipse.swt.custom.CTabFolder;
+import org.eclipse.swt.custom.CTabItem;
 
 public class MPartTest extends TestCase {
 	protected IEclipseContext appContext;
@@ -225,6 +225,44 @@ public class MPartTest extends TestCase {
 				.get(IPresentationEngine.class.getName());
 		renderer.removeGui(part);
 		assertNull(part.getContext());
+	}
+
+	public void testMPartBug369866() {
+		final MWindow window = createWindowWithOneView("Part");
+
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+		application.getChildren().add(window);
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		MPartSashContainer container = (MPartSashContainer) window
+				.getChildren().get(0);
+		MPartStack stack = (MPartStack) container.getChildren().get(0);
+		MPart part = (MPart) stack.getChildren().get(0);
+
+		CTabFolder folder = (CTabFolder) stack.getWidget();
+		CTabItem item = folder.getItem(0);
+
+		// bug 369866 has a StringIOOBE from toggling the dirty flag with an
+		// empty part name
+		assertFalse(part.isDirty());
+		assertEquals("Part", item.getText());
+
+		part.setDirty(true);
+		assertEquals("*Part", item.getText());
+
+		part.setLabel("");
+		assertEquals("*", item.getText());
+
+		part.setDirty(false);
+		assertEquals("", item.getText());
+
+		part.setDirty(true);
+		assertEquals("*", item.getText());
 	}
 
 	private MWindow createWindowWithOneView(String partName) {

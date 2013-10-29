@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -28,6 +28,7 @@ import org.eclipse.e4.ui.model.application.ui.basic.MTrimBar;
 import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
 import org.eclipse.e4.ui.model.application.ui.menu.MMenuElement;
 import org.eclipse.e4.ui.model.application.ui.menu.MToolBar;
+import org.eclipse.e4.ui.workbench.IPresentationEngine;
 import org.eclipse.e4.ui.workbench.UIEvents;
 import org.eclipse.e4.ui.workbench.modeling.EModelService;
 import org.eclipse.e4.ui.workbench.renderers.swt.SashLayout;
@@ -54,15 +55,15 @@ public class CleanupAddon {
 	private EventHandler childrenHandler = new EventHandler() {
 		public void handleEvent(Event event) {
 			Object changedObj = event.getProperty(UIEvents.EventTags.ELEMENT);
-			String eventType = (String) event.getProperty(UIEvents.EventTags.TYPE);
-			if (UIEvents.EventTypes.REMOVE.equals(eventType)) {
+			if (UIEvents.isREMOVE(event)) {
 				final MElementContainer<?> container = (MElementContainer<?>) changedObj;
 				MUIElement containerParent = container.getParent();
 
 				// Determine the elements that should *not* ever be auto-destroyed
 				if (container instanceof MApplication || container instanceof MPerspectiveStack
 						|| container instanceof MMenuElement || container instanceof MTrimBar
-						|| container instanceof MToolBar || container instanceof MArea) {
+						|| container instanceof MToolBar || container instanceof MArea
+						|| container.getTags().contains(IPresentationEngine.NO_AUTO_COLLAPSE)) {
 					return;
 				}
 
@@ -86,7 +87,8 @@ public class CleanupAddon {
 							}
 
 							// Remove it from the model if it has no children at all
-							if (container.getChildren().size() == 0) {
+							MElementContainer<?> lclContainer = container;
+							if (lclContainer.getChildren().size() == 0) {
 								MElementContainer<MUIElement> parent = container.getParent();
 								if (parent != null && !lastStack) {
 									container.setToBeRendered(false);
@@ -141,7 +143,8 @@ public class CleanupAddon {
 	private EventHandler visibilityChangeHandler = new EventHandler() {
 		public void handleEvent(Event event) {
 			MUIElement changedObj = (MUIElement) event.getProperty(UIEvents.EventTags.ELEMENT);
-			if (changedObj instanceof MTrimBar)
+			if (changedObj instanceof MTrimBar
+					|| ((Object) changedObj.getParent()) instanceof MToolBar)
 				return;
 
 			if (changedObj.getWidget() instanceof Shell) {
@@ -168,7 +171,7 @@ public class CleanupAddon {
 			} else if (changedObj.getWidget() instanceof Control) {
 				Control ctrl = (Control) changedObj.getWidget();
 				MElementContainer<MUIElement> parent = changedObj.getParent();
-				if (parent == null) {
+				if (parent == null || ((Object) parent) instanceof MToolBar) {
 					return;
 				}
 				if (changedObj.isVisible()) {
@@ -213,14 +216,17 @@ public class CleanupAddon {
 						return;
 
 					// If there are no more 'visible' children then make the parent go away too
-					boolean makeInvisible = true;
+					boolean makeParentInvisible = true;
 					for (MUIElement kid : parent.getChildren()) {
 						if (kid.isToBeRendered() && kid.isVisible()) {
-							makeInvisible = false;
+							makeParentInvisible = false;
 							break;
 						}
 					}
-					if (makeInvisible)
+
+					// Special check: If a perspective goes invisibe we need to make its
+					// PerspectiveStack invisible as well...see bug 369528
+					if (makeParentInvisible)
 						parent.setVisible(false);
 				}
 			}
@@ -257,7 +263,15 @@ public class CleanupAddon {
 				// Bring the container back if one of its children goes visible
 				if (!container.isToBeRendered())
 					container.setToBeRendered(true);
+				if (!container.isVisible()
+						&& !container.getTags().contains(IPresentationEngine.MINIMIZED))
+					container.setVisible(true);
 			} else {
+				// Never hide the container marked as no_close
+				if (container.getTags().contains(IPresentationEngine.NO_AUTO_COLLAPSE)) {
+					return;
+				}
+
 				int visCount = modelService.countRenderableChildren(container);
 
 				// Remove stacks with no visible children from the display (but not the
@@ -266,10 +280,29 @@ public class CleanupAddon {
 				if (visCount == 0) {
 					Display.getCurrent().asyncExec(new Runnable() {
 						public void run() {
-							if (!isLastEditorStack(theContainer))
+							int visCount = modelService.countRenderableChildren(theContainer);
+							if (!isLastEditorStack(theContainer) && visCount == 0)
 								theContainer.setToBeRendered(false);
 						}
 					});
+				} else {
+					// if there are rendered elements but none are 'visible' we should
+					// make the container invisible as well
+					boolean makeInvisible = true;
+
+					// OK, we have rendered children, are they 'visible' ?
+					for (MUIElement kid : container.getChildren()) {
+						if (!kid.isToBeRendered())
+							continue;
+						if (kid.isVisible()) {
+							makeInvisible = false;
+							break;
+						}
+					}
+
+					if (makeInvisible) {
+						container.setVisible(false);
+					}
 				}
 			}
 		}

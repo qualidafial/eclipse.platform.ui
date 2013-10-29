@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007 IBM Corporation and others.
+ * Copyright (c) 2007, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,10 +11,11 @@
 
 package org.eclipse.ui.tests.session;
 
+import junit.framework.TestCase;
+import junit.framework.TestSuite;
+
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.themes.IThemeManager;
-
-import junit.framework.TestCase;
 
 /**
  * Tests various persistent theme properties.
@@ -22,6 +23,11 @@ import junit.framework.TestCase;
  * @since 3.4
  */
 public class ThemeStateTest extends TestCase {
+	public static TestSuite suite() {
+		TestSuite ts = new TestSuite("org.eclipse.ui.tests.session.ThemeStateTest");
+		ts.addTest(new ThemeStateTest("testBadPreference"));
+		return ts;
+	}
 
 	public ThemeStateTest(final String name) {
 		super(name);

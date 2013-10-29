@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2008 IBM Corporation and others.
+ * Copyright (c) 2005, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -105,8 +105,16 @@ final class HandlerActivation implements IHandlerActivation {
 			active = true;
 		} else {
 			try {
+				active = false;
 				active = activeWhen.evaluate(context) != EvaluationResult.FALSE;
 			} catch (CoreException e) {
+				/*
+				 * Swallow the exception. It simply means the variable is not
+				 * valid (most frequently, that the value is null or has a
+				 * complex core expression with a property tester). This kind of
+				 * information is not really useful to us, so we can just treat
+				 * it as false.
+				 */
 				Activator.trace(Policy.DEBUG_CMDS, "Failed to calculate active", e); //$NON-NLS-1$
 			}
 		}

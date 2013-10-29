@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2009, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,14 +16,15 @@ import javax.inject.Inject;
 import org.eclipse.e4.core.services.events.IEventBroker;
 import org.eclipse.e4.ui.model.application.ui.MElementContainer;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
+import org.eclipse.e4.ui.model.application.ui.basic.MPartSashContainer;
+import org.eclipse.e4.ui.model.application.ui.basic.MPartSashContainerElement;
 import org.eclipse.e4.ui.workbench.UIEvents;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.DisposeEvent;
 import org.eclipse.swt.events.DisposeListener;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Control;
-import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Layout;
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventHandler;
 
@@ -81,13 +82,17 @@ public class SashRenderer extends SWTPartRenderer {
 	 */
 	protected void forceLayout(MElementContainer<MUIElement> pscModel) {
 		// layout the containing Composite
-		while (!(pscModel.getWidget() instanceof Control))
+		while (!(pscModel.getWidget() instanceof Composite))
 			pscModel = pscModel.getParent();
-		Control ctrl = (Control) pscModel.getWidget();
-		if (ctrl instanceof Shell)
-			((Shell) ctrl).layout(null, SWT.ALL | SWT.CHANGED | SWT.DEFER);
-		else
-			ctrl.getParent().layout(null, SWT.ALL | SWT.CHANGED | SWT.DEFER);
+
+		Composite s = (Composite) pscModel.getWidget();
+		Layout layout = s.getLayout();
+		if (layout instanceof SashLayout) {
+			if (((SashLayout) layout).layoutUpdateInProgress) {
+				return;
+			}
+		}
+		s.layout(true, true);
 	}
 
 	@PreDestroy
@@ -116,8 +121,21 @@ public class SashRenderer extends SWTPartRenderer {
 			return newRect;
 		}
 
+		// Check to see if this is a new PSC added 'above' the previous 'root'
+		// sash
+		Composite sashComposite = null;
+		MPartSashContainer psc = (MPartSashContainer) element;
+		for (MPartSashContainerElement psce : psc.getChildren()) {
+			if (psce instanceof MPartSashContainer
+					&& psce.getWidget() instanceof Composite) {
+				// 'Adopt' the previous root's layout / composite
+				sashComposite = (Composite) psce.getWidget();
+				bindWidget(psce, new Rectangle(0, 0, 0, 0));
+			}
+		}
 		// This is a 'root' sash container, create a composite
-		Composite sashComposite = new Composite((Composite) parent, SWT.NONE);
+		if (sashComposite == null)
+			sashComposite = new Composite((Composite) parent, SWT.NONE);
 		sashComposite.setLayout(new SashLayout(sashComposite, element));
 
 		return sashComposite;

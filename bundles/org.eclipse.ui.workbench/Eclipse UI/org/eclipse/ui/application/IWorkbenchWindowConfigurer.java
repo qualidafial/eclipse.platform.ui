@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2008 IBM Corporation and others.
+ * Copyright (c) 2003, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -299,105 +299,117 @@ public interface IWorkbenchWindowConfigurer {
             DropTargetListener dropTargetListener);
 
     /**
-     * Returns the presentation factory for this window.  The window consults its presentation
-     * factory for the presentation aspects of views, editors, status lines, and other components
-     * of the window.
-     * <p>
-     * If no presentation factory has been set, a default one is returned.
-     * </p>
-     * 
-     * @return the presentation factory used for this window
-     * 
-     * @deprecated the presentation factory is now obtained via extension point
-     *   and a preference on org.eclipse.ui specifying which one to use;
-     *   see IWorkbenchPreferenceConstants.PRESENTATION_FACTORY_ID
-     */
+	 * Returns the presentation factory for this window. The window consults its
+	 * presentation factory for the presentation aspects of views, editors,
+	 * status lines, and other components of the window.
+	 * <p>
+	 * If no presentation factory has been set, a default one is returned.
+	 * </p>
+	 * 
+	 * @return the presentation factory used for this window
+	 * @deprecated The presentation API is no longer used and has no effect.
+	 *             Refer to the platform porting guide for further details.
+	 */
+	@Deprecated
     public AbstractPresentationFactory getPresentationFactory();
 
     /**
-     * Sets the presentation factory.  The window consults its presentation
-     * factory for the presentation aspects of views, editors, status lines, and other components
-     * of the window.  
-     * <p>
-     * This must be called before the window's controls are created, for example
-     * in <code>preWindowOpen</code>.
-     * </p>
-     * 
-     * @param factory the presentation factory to use for this window
-     * 
-     * @deprecated the presentation factory is now obtained via extension point
-     *   and a preference on org.eclipse.ui specifying which one to use;
-     *   see IWorkbenchPreferenceConstants.PRESENTATION_FACTORY_ID
-     */
+	 * Sets the presentation factory. The window consults its presentation
+	 * factory for the presentation aspects of views, editors, status lines, and
+	 * other components of the window.
+	 * <p>
+	 * This must be called before the window's controls are created, for example
+	 * in <code>preWindowOpen</code>.
+	 * </p>
+	 * 
+	 * @param factory
+	 *            the presentation factory to use for this window
+	 * @deprecated The presentation API is no longer used and has no effect.
+	 *             Refer to the platform porting guide for further details.
+	 */
+	@Deprecated
     public void setPresentationFactory(AbstractPresentationFactory factory);
 
     /**
-     * Creates the menu bar for the window's shell.
-     * <p>
-     * This should only be called if the advisor is defining custom window contents
-     * in <code>createWindowContents</code>, and may only be called once.
-     * The caller must set it in the shell using <code>Shell.setMenuBar(Menu)</code>
-     * but must not make add, remove or change items in the result.
-     * The menu bar is populated by the window's menu manager.  
-     * The application can add to the menu manager in the advisor's 
-     * <code>fillActionBars</code> method instead.
-     * </p>
-     * 
-     * @return the menu bar, suitable for setting in the shell
-     */
+	 * Creates the menu bar for the window's shell.
+	 * <p>
+	 * This should only be called if the advisor is defining custom window
+	 * contents in <code>createWindowContents</code>, and may only be called
+	 * once. The caller must set it in the shell using
+	 * <code>Shell.setMenuBar(Menu)</code> but must not make add, remove or
+	 * change items in the result. The menu bar is populated by the window's
+	 * menu manager. The application can add to the menu manager in the
+	 * advisor's <code>fillActionBars</code> method instead.
+	 * </p>
+	 * 
+	 * @return the menu bar, suitable for setting in the shell
+	 * @deprecated This method is no longer used. Applications now define
+	 *             workbench window contents in their application model.
+	 */
+	@Deprecated
     public Menu createMenuBar();
 
     /**
-     * Creates the cool bar control. 
-     * <p>
-     * This should only be called if the advisor is defining custom window contents
-     * in <code>createWindowContents</code>, and may only be called once.
-     * The caller must lay out the cool bar appropriately within the parent,
-     * but must not add, remove or change items in the result (hence the
-     * return type of <code>Control</code>).
-     * The cool bar is populated by the window's cool bar manager.  
-     * The application can add to the cool bar manager in the advisor's 
-     * <code>fillActionBars</code> method instead.
-     * </p>
-     * 
-     * @param parent the parent composite
-     * @return the cool bar control, suitable for laying out in the parent 
-     */
+	 * Creates the cool bar control.
+	 * <p>
+	 * This should only be called if the advisor is defining custom window
+	 * contents in <code>createWindowContents</code>, and may only be called
+	 * once. The caller must lay out the cool bar appropriately within the
+	 * parent, but must not add, remove or change items in the result (hence the
+	 * return type of <code>Control</code>). The cool bar is populated by the
+	 * window's cool bar manager. The application can add to the cool bar
+	 * manager in the advisor's <code>fillActionBars</code> method instead.
+	 * </p>
+	 * 
+	 * @param parent
+	 *            the parent composite
+	 * @return the cool bar control, suitable for laying out in the parent
+	 * @deprecated This method is no longer used. Applications now define
+	 *             workbench window contents in their application model.
+	 */
+	@Deprecated
     public Control createCoolBarControl(Composite parent);
 
     /**
-     * Creates the status line control. 
-     * <p>
-     * This should only be called if the advisor is defining custom window contents
-     * in <code>createWindowContents</code>, and may only be called once.
-     * The caller must lay out the status line appropriately within the parent,
-     * but must not add, remove or change items in the result (hence the
-     * return type of <code>Control</code>).
-     * The status line is populated by the window's status line manager.  
-     * The application can add to the status line manager in the advisor's 
-     * <code>fillActionBars</code> method instead.
-     * </p>
-     * 
-     * @param parent the parent composite
-     * @return the status line control, suitable for laying out in the parent 
-     */
+	 * Creates the status line control.
+	 * <p>
+	 * This should only be called if the advisor is defining custom window
+	 * contents in <code>createWindowContents</code>, and may only be called
+	 * once. The caller must lay out the status line appropriately within the
+	 * parent, but must not add, remove or change items in the result (hence the
+	 * return type of <code>Control</code>). The status line is populated by the
+	 * window's status line manager. The application can add to the status line
+	 * manager in the advisor's <code>fillActionBars</code> method instead.
+	 * </p>
+	 * 
+	 * @param parent
+	 *            the parent composite
+	 * @return the status line control, suitable for laying out in the parent
+	 * @deprecated This method is no longer used. Applications now define
+	 *             workbench window contents in their application model.
+	 */
+	@Deprecated
     public Control createStatusLineControl(Composite parent);
 
     /**
-     * Creates the page composite, in which the window's pages, and their
-     * views and editors, appear.
-     * <p>
-     * This should only be called if the advisor is defining custom window contents
-     * in <code>createWindowContents</code>, and may only be called once.
-     * The caller must lay out the page composite appropriately within the parent,
-     * but must not add, remove or change items in the result (hence the
-     * return type of <code>Control</code>).
-     * The page composite is populated by the workbench.  
-     * </p>
-     * 
-     * @param parent the parent composite
-     * @return the page composite, suitable for laying out in the parent 
-     */
+	 * Creates the page composite, in which the window's pages, and their views
+	 * and editors, appear.
+	 * <p>
+	 * This should only be called if the advisor is defining custom window
+	 * contents in <code>createWindowContents</code>, and may only be called
+	 * once. The caller must lay out the page composite appropriately within the
+	 * parent, but must not add, remove or change items in the result (hence the
+	 * return type of <code>Control</code>). The page composite is populated by
+	 * the workbench.
+	 * </p>
+	 * 
+	 * @param parent
+	 *            the parent composite
+	 * @return the page composite, suitable for laying out in the parent
+	 * @deprecated This method is no longer used. Applications now define
+	 *             workbench window contents in their application model.
+	 */
+	@Deprecated
     public Control createPageComposite(Composite parent);
 	
 	/**

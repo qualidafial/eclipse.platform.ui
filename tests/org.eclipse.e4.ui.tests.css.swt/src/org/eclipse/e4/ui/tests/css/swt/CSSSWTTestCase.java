@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2009 IBM Corporation and others. All rights reserved. This
+ * Copyright (c) 2008, 2012 IBM Corporation and others. All rights reserved. This
  * program and the accompanying materials are made available under the terms of
  * the Eclipse Public License v1.0 which accompanies this distribution, and is
  * available at http://www.eclipse.org/legal/epl-v10.html
@@ -18,6 +18,7 @@ import org.eclipse.e4.ui.css.core.engine.CSSEngine;
 import org.eclipse.e4.ui.css.core.engine.CSSErrorHandler;
 import org.eclipse.e4.ui.css.swt.engine.CSSSWTEngineImpl;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Widget;
 
 public class CSSSWTTestCase extends TestCase {
@@ -72,4 +73,16 @@ public class CSSSWTTestCase extends TestCase {
 		    assertEquals(expected[i], actual[i]);			
 		}
 	}
+
+    @Override
+    protected void tearDown() throws Exception {
+        Display display = Display.getDefault();
+        if (!display.isDisposed()) {
+            for (Shell shell : display.getShells()) {
+                shell.dispose();
+            }
+        }
+        super.tearDown();
+    }
+
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -48,7 +48,7 @@ public abstract class CompositeImageDescriptor extends ImageDescriptor {
 	 * the given bounds using one or more calls to the <code>drawImage</code>
 	 * framework method.
 	 * </p>
-	 * 
+	 *
 	 * @param width
 	 *            the width
 	 * @param height
@@ -63,7 +63,7 @@ public abstract class CompositeImageDescriptor extends ImageDescriptor {
 	 * Call this internal framework method to superimpose another image atop
 	 * this composite image.
 	 * </p>
-	 * 
+	 *
 	 * @param src
 	 *            the source image data
 	 * @param ox
@@ -72,6 +72,9 @@ public abstract class CompositeImageDescriptor extends ImageDescriptor {
 	 *            the y position
 	 */
 	final protected void drawImage(ImageData src, int ox, int oy) {
+		if (src == null) {
+			return;
+		}
 		ImageData dst = imageData;
 		PaletteData srcPalette = src.palette;
 		ImageData srcMask = null;
@@ -136,12 +139,12 @@ public abstract class CompositeImageDescriptor extends ImageDescriptor {
 						dstGreen += (srcGreen - dstGreen) * srcAlpha / 255;
 						dstBlue += (srcBlue - dstBlue) * srcAlpha / 255;
 					} else {
-						// See Porter T., Duff T. 1984. "Compositing Digital Images". 
+						// See Porter T., Duff T. 1984. "Compositing Digital Images".
 						// Computer Graphics 18 (3): 253–259.
 						dstRed = srcRed * srcAlpha * 255 + dstRed * dstAlpha * (255 - srcAlpha);
 						dstGreen = srcGreen * srcAlpha * 255 + dstGreen * dstAlpha * (255 - srcAlpha);
 						dstBlue = srcBlue * srcAlpha * 255 + dstBlue * dstAlpha * (255 - srcAlpha);
-						dstAlpha = srcAlpha * 255 + dstAlpha * (255 - srcAlpha); 
+						dstAlpha = srcAlpha * 255 + dstAlpha * (255 - srcAlpha);
 						if (dstAlpha != 0) { // if both original alphas == 0, then all colors are 0
 							dstRed /= dstAlpha;
 							dstGreen /= dstAlpha;
@@ -159,15 +162,16 @@ public abstract class CompositeImageDescriptor extends ImageDescriptor {
 	/*
 	 * (non-Javadoc) Method declared on ImageDesciptor.
 	 */
+	@Override
 	public ImageData getImageData() {
-		Point size = getSize();		
-		
+		Point size = getSize();
+
 		/* Create a 24 bit image data with alpha channel */
 		imageData = new ImageData(size.x, size.y, 24, new PaletteData(0xFF, 0xFF00, 0xFF0000));
 		imageData.alphaData = new byte[imageData.width * imageData.height];
-		
+
 		drawCompositeImage(size.x, size.y);
-		
+
 		/* Detect minimum transparency */
 		boolean transparency = false;
 		byte[] alphaData = imageData.alphaData;
@@ -194,11 +198,11 @@ public abstract class CompositeImageDescriptor extends ImageDescriptor {
 		}
 		return imageData;
 	}
-	
+
 
 	/**
 	 * Return the transparent pixel for the receiver.
-	 * <strong>NOTE</strong> This value is not currently in use in the 
+	 * <strong>NOTE</strong> This value is not currently in use in the
 	 * default implementation.
 	 * @return int
 	 * @since 3.3
@@ -212,7 +216,7 @@ public abstract class CompositeImageDescriptor extends ImageDescriptor {
 	 * <p>
 	 * Subclasses must implement this framework method.
 	 * </p>
-	 * 
+	 *
 	 * @return the x and y size of the image expressed as a point object
 	 */
 	protected abstract Point getSize();

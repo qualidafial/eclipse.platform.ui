@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2006 IBM Corporation and others.
+ * Copyright (c) 2003, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,7 +24,8 @@ public class PreferenceLabelProvider extends LabelProvider {
      * @param element must be an instance of <code>IPreferenceNode</code>.
      * @see org.eclipse.jface.viewers.ILabelProvider#getText(java.lang.Object)
      */
-    public String getText(Object element) {
+    @Override
+	public String getText(Object element) {
         return ((IPreferenceNode) element).getLabelText();
     }
 
@@ -32,7 +33,8 @@ public class PreferenceLabelProvider extends LabelProvider {
      * @param element must be an instance of <code>IPreferenceNode</code>.
      * @see org.eclipse.jface.viewers.ILabelProvider#getImage(java.lang.Object)
      */
-    public Image getImage(Object element) {
+    @Override
+	public Image getImage(Object element) {
         return ((IPreferenceNode) element).getLabelImage();
     }
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -852,31 +852,8 @@ public class ResourceInfoPage extends PropertyPage {
 		return cachedContentDescription;
 	}
 
-	/**
-	 * Returns whether the given resource is a linked resource bound to a path
-	 * variable.
-	 * 
-	 * @param resource
-	 *            resource to test
-	 * @return boolean <code>true</code> the given resource is a linked
-	 *         resource bound to a path variable. <code>false</code> the given
-	 *         resource is either not a linked resource or it is not using a
-	 *         path variable.
-	 */
 	/*
-	 * Now shows the same widgets for all linked files. private boolean
-	 * isPathVariable(IResource resource) { if (!resource.isLinked()) { return
-	 * false; }
-	 * 
-	 * IPath resolvedLocation = resource.getLocation(); if (resolvedLocation ==
-	 * null) { // missing path variable return true; } IPath rawLocation =
-	 * resource.getRawLocation(); if (resolvedLocation.equals(rawLocation)) {
-	 * return false; }
-	 * 
-	 * return true; }
-	 */
-	/**
-	 * Reset the editableBox to the false.
+	 * @see PreferencePage#performDefaults()
 	 */
 	protected void performDefaults() {
 
@@ -908,6 +885,11 @@ public class ResourceInfoPage extends PropertyPage {
 		// Nothing to update if we never made the box
 		if (this.executableBox != null) {
 			this.executableBox.setSelection(false);
+		}
+		
+		// Nothing to update if we never made the box
+		if (this.archiveBox != null) {
+			this.archiveBox.setSelection(true);
 		}
 
 		// Nothing to update if we never made the box

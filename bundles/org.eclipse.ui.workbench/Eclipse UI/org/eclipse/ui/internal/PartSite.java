@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -46,6 +46,7 @@ import org.eclipse.ui.handlers.IHandlerService;
 import org.eclipse.ui.internal.contexts.SlaveContextService;
 import org.eclipse.ui.internal.expressions.ActivePartExpression;
 import org.eclipse.ui.internal.handlers.LegacyHandlerService;
+import org.eclipse.ui.internal.menus.SlaveMenuService;
 import org.eclipse.ui.internal.progress.WorkbenchSiteProgressService;
 import org.eclipse.ui.internal.registry.IWorkbenchRegistryConstants;
 import org.eclipse.ui.internal.services.IServiceLocatorCreator;
@@ -53,6 +54,7 @@ import org.eclipse.ui.internal.services.IWorkbenchLocationService;
 import org.eclipse.ui.internal.services.ServiceLocator;
 import org.eclipse.ui.internal.services.WorkbenchLocationService;
 import org.eclipse.ui.internal.testing.WorkbenchPartTestable;
+import org.eclipse.ui.menus.IMenuService;
 import org.eclipse.ui.progress.IProgressService;
 import org.eclipse.ui.progress.IWorkbenchSiteProgressService;
 import org.eclipse.ui.services.IDisposable;
@@ -104,9 +106,8 @@ public abstract class PartSite implements IWorkbenchPartSite {
 	 *      ISelectionProvider)
 	 */
 	public static final void registerContextMenu(final String menuId,
-			final MenuManager menuManager,
-			final ISelectionProvider selectionProvider,
-			final boolean includeEditorInput, final IWorkbenchPart part,
+			final MenuManager menuManager, final ISelectionProvider selectionProvider,
+			final boolean includeEditorInput, final IWorkbenchPart part, IEclipseContext context,
 			final Collection menuExtenders) {
 		/*
 		 * Check to see if the same menu manager and selection provider have
@@ -126,8 +127,8 @@ public abstract class PartSite implements IWorkbenchPartSite {
 		}
 
 		if (!foundMatch) {
-			menuExtenders.add(new PopupMenuExtender(menuId, menuManager,
-					selectionProvider, part, includeEditorInput));
+			menuExtenders.add(new PopupMenuExtender(menuId, menuManager, selectionProvider, part,
+					context, includeEditorInput));
 		}
 	}
 
@@ -148,6 +149,8 @@ public abstract class PartSite implements IWorkbenchPartSite {
 	private SlaveSelectionService selectionService;
 
 	private SlaveContextService contextService;
+
+	private SlaveMenuService menuService;
 
 	protected ArrayList menuExtenders;
 
@@ -198,8 +201,7 @@ public abstract class PartSite implements IWorkbenchPartSite {
 					public void dispose() {
 						// not sure what to do here
 					}
-				});
-		serviceLocator.setContext(e4Context);
+				}, e4Context);
 		initializeDefaultServices();
 	}
 
@@ -237,7 +239,7 @@ public abstract class PartSite implements IWorkbenchPartSite {
 
 		e4Context.set(IWorkbenchSiteProgressService.class.getName(), new ContextFunction() {
 			@Override
-			public Object compute(IEclipseContext context) {
+			public Object compute(IEclipseContext context, String contextKey) {
 				if (progressService == null) {
 					progressService = new WorkbenchSiteProgressService(PartSite.this);
 				}
@@ -246,7 +248,7 @@ public abstract class PartSite implements IWorkbenchPartSite {
 		});
 		e4Context.set(IProgressService.class.getName(), new ContextFunction() {
 			@Override
-			public Object compute(IEclipseContext context) {
+			public Object compute(IEclipseContext context, String contextKey) {
 				if (progressService == null) {
 					progressService = new WorkbenchSiteProgressService(PartSite.this);
 				}
@@ -255,7 +257,7 @@ public abstract class PartSite implements IWorkbenchPartSite {
 		});
 		e4Context.set(IKeyBindingService.class.getName(), new ContextFunction() {
 			@Override
-			public Object compute(IEclipseContext context) {
+			public Object compute(IEclipseContext context, String contextKey) {
 				if (keyBindingService == null) {
 					keyBindingService = new KeyBindingService(PartSite.this);
 				}
@@ -265,7 +267,7 @@ public abstract class PartSite implements IWorkbenchPartSite {
 		});
 		e4Context.set(IPageService.class.getName(), new ContextFunction() {
 			@Override
-			public Object compute(IEclipseContext context) {
+			public Object compute(IEclipseContext context, String contextKey) {
 				if (pageService == null) {
 					pageService = new SlavePageService(context.getParent().get(IPageService.class));
 				}
@@ -275,7 +277,7 @@ public abstract class PartSite implements IWorkbenchPartSite {
 		});
 		e4Context.set(IPartService.class.getName(), new ContextFunction() {
 			@Override
-			public Object compute(IEclipseContext context) {
+			public Object compute(IEclipseContext context, String contextKey) {
 				if (partService == null) {
 					partService = new SlavePartService(context.getParent().get(IPartService.class));
 				}
@@ -284,7 +286,7 @@ public abstract class PartSite implements IWorkbenchPartSite {
 		});
 		e4Context.set(ISelectionService.class.getName(), new ContextFunction() {
 			@Override
-			public Object compute(IEclipseContext context) {
+			public Object compute(IEclipseContext context, String contextKey) {
 				if (selectionService == null) {
 					selectionService = new SlaveSelectionService(context.getParent().get(
 							ISelectionService.class));
@@ -294,12 +296,22 @@ public abstract class PartSite implements IWorkbenchPartSite {
 		});
 		e4Context.set(IContextService.class.getName(), new ContextFunction() {
 			@Override
-			public Object compute(IEclipseContext context) {
+			public Object compute(IEclipseContext context, String contextKey) {
 				if (contextService == null) {
 					contextService = new SlaveContextService(context.getParent().get(
 							IContextService.class), new ActivePartExpression(part));
 				}
 				return contextService;
+			}
+		});
+		e4Context.set(IMenuService.class.getName(), new ContextFunction() {
+			@Override
+			public Object compute(IEclipseContext context, String contextKey) {
+				if (menuService == null) {
+					menuService = new SlaveMenuService(context.getParent().get(IMenuService.class),
+							model);
+				}
+				return menuService;
 			}
 		});
 	}
@@ -354,6 +366,7 @@ public abstract class PartSite implements IWorkbenchPartSite {
 		if (serviceLocator != null) {
 			serviceLocator.dispose();
 		}
+		menuService = null;
 		part = null;
 	}
 
@@ -492,8 +505,7 @@ public abstract class PartSite implements IWorkbenchPartSite {
 			menuExtenders = new ArrayList(1);
 		}
 
-		registerContextMenu(menuID, menuMgr, selProvider, true, getPart(),
-				menuExtenders);
+		registerContextMenu(menuID, menuMgr, selProvider, true, getPart(), e4Context, menuExtenders);
 	}
 
 	/**

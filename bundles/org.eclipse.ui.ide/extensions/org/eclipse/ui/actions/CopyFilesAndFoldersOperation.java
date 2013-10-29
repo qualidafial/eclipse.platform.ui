@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -556,7 +556,7 @@ public class CopyFilesAndFoldersOperation {
 	 *            the resources to copy
 	 * @param destination
 	 *            destination to which resources will be copied
-	 * @return IResource[] the resulting {@link IResource}[]
+	 * @return the resources which actually got copied
 	 * @see WorkspaceModifyOperation
 	 * @see Display#getThread()
 	 * @see Thread#currentThread()
@@ -1670,8 +1670,8 @@ public class CopyFilesAndFoldersOperation {
 		}
 		IWorkspace workspace = destination.getWorkspace();
 		IResource linkHandle = createLinkedResourceHandle(destination, source);
-		IStatus locationStatus = workspace.validateLinkLocation(linkHandle,
-				source.getRawLocation());
+		IStatus locationStatus = workspace.validateLinkLocationURI(linkHandle,
+				source.getRawLocationURI());
 
 		if (locationStatus.getSeverity() == IStatus.ERROR) {
 			return locationStatus.getMessage();

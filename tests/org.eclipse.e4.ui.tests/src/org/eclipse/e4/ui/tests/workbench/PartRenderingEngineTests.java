@@ -35,13 +35,13 @@ import org.eclipse.e4.ui.model.application.ui.basic.impl.BasicFactoryImpl;
 import org.eclipse.e4.ui.model.application.ui.menu.MToolBar;
 import org.eclipse.e4.ui.model.application.ui.menu.MToolControl;
 import org.eclipse.e4.ui.model.application.ui.menu.impl.MenuFactoryImpl;
-import org.eclipse.e4.ui.widgets.CTabFolder;
-import org.eclipse.e4.ui.widgets.CTabItem;
 import org.eclipse.e4.ui.workbench.IPresentationEngine;
 import org.eclipse.e4.ui.workbench.addons.cleanupaddon.CleanupAddon;
 import org.eclipse.e4.ui.workbench.modeling.EModelService;
 import org.eclipse.e4.ui.workbench.modeling.EPartService;
 import org.eclipse.e4.ui.workbench.modeling.EPartService.PartState;
+import org.eclipse.swt.custom.CTabFolder;
+import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
@@ -2127,7 +2127,7 @@ public class PartRenderingEngineTests extends TestCase {
 		}
 	}
 
-	public void testBug326175_True() {
+	public void TODOtestBug326175_True() {
 		testBug326175(true);
 	}
 
@@ -2885,6 +2885,396 @@ public class PartRenderingEngineTests extends TestCase {
 		assertNotNull(partB.getWidget());
 	}
 
+	public void testBug348069_01() {
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+		application.getChildren().add(window);
+		application.setSelectedElement(window);
+
+		MPart part = BasicFactoryImpl.eINSTANCE.createPart();
+		part.setContributionURI("platform:/plugin/org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.SampleView");
+		window.getChildren().add(part);
+		window.setSelectedElement(part);
+
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		SampleView view = (SampleView) part.getObject();
+		assertFalse(view.isDestroyed());
+
+		((Shell) window.getWidget()).close();
+		assertTrue(view.isDestroyed());
+		assertTrue(application.getChildren().contains(window));
+	}
+
+	public void testBug348069_02() {
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+
+		MWindow windowA = BasicFactoryImpl.eINSTANCE.createWindow();
+		application.getChildren().add(windowA);
+		application.setSelectedElement(windowA);
+
+		MPart partA = BasicFactoryImpl.eINSTANCE.createPart();
+		partA.setContributionURI("platform:/plugin/org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.SampleView");
+		windowA.getChildren().add(partA);
+		windowA.setSelectedElement(partA);
+
+		MWindow windowB = BasicFactoryImpl.eINSTANCE.createWindow();
+		application.getChildren().add(windowB);
+
+		MPart partB = BasicFactoryImpl.eINSTANCE.createPart();
+		partB.setContributionURI("platform:/plugin/org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.SampleView");
+		windowB.getChildren().add(partB);
+		windowB.setSelectedElement(partB);
+
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(windowA);
+		wb.createAndRunUI(windowB);
+
+		SampleView viewA = (SampleView) partA.getObject();
+		assertFalse(viewA.isDestroyed());
+		SampleView viewB = (SampleView) partB.getObject();
+		assertFalse(viewB.isDestroyed());
+
+		((Shell) windowB.getWidget()).close();
+		assertTrue(viewB.isDestroyed());
+		assertFalse(windowB.isToBeRendered());
+		assertFalse(application.getChildren().contains(windowB));
+
+		((Shell) windowA.getWidget()).close();
+		assertTrue(viewA.isDestroyed());
+		assertTrue(windowA.isToBeRendered());
+		assertTrue(application.getChildren().contains(windowA));
+	}
+
+	public void testBug348069_DetachedWindow_01() {
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+		application.getChildren().add(window);
+		application.setSelectedElement(window);
+
+		MWindow detachedWindow = BasicFactoryImpl.eINSTANCE.createWindow();
+		window.getWindows().add(detachedWindow);
+
+		MPart part = BasicFactoryImpl.eINSTANCE.createPart();
+		part.setContributionURI("platform:/plugin/org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.SampleView");
+		detachedWindow.getChildren().add(part);
+		detachedWindow.setSelectedElement(part);
+
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		SampleView view = (SampleView) part.getObject();
+		assertFalse(view.isDestroyed());
+
+		((Shell) detachedWindow.getWidget()).close();
+		assertTrue(view.isDestroyed());
+		assertTrue(window.getWindows().contains(detachedWindow));
+	}
+
+	public void testBug348069_DetachedWindow_02() {
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+		application.getChildren().add(window);
+		application.setSelectedElement(window);
+
+		MWindow detachedWindow = BasicFactoryImpl.eINSTANCE.createWindow();
+		window.getWindows().add(detachedWindow);
+
+		MPart part = BasicFactoryImpl.eINSTANCE.createPart();
+		part.setContributionURI("platform:/plugin/org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.SampleView");
+		detachedWindow.getChildren().add(part);
+		detachedWindow.setSelectedElement(part);
+
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		SampleView view = (SampleView) part.getObject();
+		assertFalse(view.isDestroyed());
+
+		detachedWindow.setSelectedElement(null);
+		detachedWindow.getChildren().remove(part);
+		window.getChildren().add(part);
+
+		((Shell) detachedWindow.getWidget()).close();
+		assertFalse(view.isDestroyed());
+		assertFalse(window.getWindows().contains(detachedWindow));
+	}
+
+	public void testBug348069_DetachedWindow_03() {
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+		application.getChildren().add(window);
+		application.setSelectedElement(window);
+
+		MWindow detachedWindow = BasicFactoryImpl.eINSTANCE.createWindow();
+		window.getWindows().add(detachedWindow);
+
+		MPart part = BasicFactoryImpl.eINSTANCE.createPart();
+		part.setContributionURI("platform:/plugin/org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.SampleView");
+		detachedWindow.getChildren().add(part);
+		detachedWindow.setSelectedElement(part);
+
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		SampleView view = (SampleView) part.getObject();
+		assertFalse(view.isDestroyed());
+
+		((Shell) detachedWindow.getWidget()).close();
+		assertTrue(view.isDestroyed());
+		assertTrue(window.getWindows().contains(detachedWindow));
+	}
+
+	private void testBug348069_DetachedPerspectiveWindow_01(
+			boolean createPlaceholder) {
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+		application.getChildren().add(window);
+		application.setSelectedElement(window);
+
+		MPerspectiveStack perspectiveStack = AdvancedFactoryImpl.eINSTANCE
+				.createPerspectiveStack();
+		window.getChildren().add(perspectiveStack);
+		window.setSelectedElement(perspectiveStack);
+
+		MPerspective perspective = AdvancedFactoryImpl.eINSTANCE
+				.createPerspective();
+		perspectiveStack.getChildren().add(perspective);
+		perspectiveStack.setSelectedElement(perspective);
+
+		MWindow detachedWindow = BasicFactoryImpl.eINSTANCE.createWindow();
+		perspective.getWindows().add(detachedWindow);
+
+		MPartStack partStack = BasicFactoryImpl.eINSTANCE.createPartStack();
+		detachedWindow.getChildren().add(partStack);
+		detachedWindow.setSelectedElement(partStack);
+
+		MPart part = BasicFactoryImpl.eINSTANCE.createPart();
+		part.setContributionURI("platform:/plugin/org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.SampleView");
+
+		if (createPlaceholder) {
+			window.getSharedElements().add(part);
+
+			MPlaceholder placeholder = AdvancedFactoryImpl.eINSTANCE
+					.createPlaceholder();
+			placeholder.setRef(part);
+			part.setCurSharedRef(placeholder);
+
+			partStack.getChildren().add(placeholder);
+			partStack.setSelectedElement(placeholder);
+		} else {
+			partStack.getChildren().add(part);
+			partStack.setSelectedElement(part);
+		}
+
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		SampleView view = (SampleView) part.getObject();
+		assertFalse(view.isDestroyed());
+
+		((Shell) detachedWindow.getWidget()).close();
+		assertTrue(view.isDestroyed());
+		assertTrue(perspective.getWindows().contains(detachedWindow));
+	}
+
+	public void testBug348069_DetachedPerspectiveWindow_01_TRUE() {
+		testBug348069_DetachedPerspectiveWindow_01(true);
+	}
+
+	public void testBug348069_DetachedPerspectiveWindow_01_FALSE() {
+		testBug348069_DetachedPerspectiveWindow_01(false);
+	}
+
+	private void testBug348069_DetachedPerspectiveWindow_02(
+			boolean createPlaceholder) {
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+		application.getChildren().add(window);
+		application.setSelectedElement(window);
+
+		MPerspectiveStack perspectiveStack = AdvancedFactoryImpl.eINSTANCE
+				.createPerspectiveStack();
+		window.getChildren().add(perspectiveStack);
+		window.setSelectedElement(perspectiveStack);
+
+		MPerspective perspective = AdvancedFactoryImpl.eINSTANCE
+				.createPerspective();
+		perspectiveStack.getChildren().add(perspective);
+		perspectiveStack.setSelectedElement(perspective);
+
+		MWindow detachedWindow = BasicFactoryImpl.eINSTANCE.createWindow();
+		perspective.getWindows().add(detachedWindow);
+
+		MPartStack partStack = BasicFactoryImpl.eINSTANCE.createPartStack();
+		detachedWindow.getChildren().add(partStack);
+		detachedWindow.setSelectedElement(partStack);
+
+		MPlaceholder placeholder = null;
+		MPart part = BasicFactoryImpl.eINSTANCE.createPart();
+		part.setContributionURI("platform:/plugin/org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.SampleView");
+
+		if (createPlaceholder) {
+			window.getSharedElements().add(part);
+
+			placeholder = AdvancedFactoryImpl.eINSTANCE.createPlaceholder();
+			placeholder.setRef(part);
+			part.setCurSharedRef(placeholder);
+
+			partStack.getChildren().add(placeholder);
+			partStack.setSelectedElement(placeholder);
+		} else {
+			partStack.getChildren().add(part);
+			partStack.setSelectedElement(part);
+		}
+
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		SampleView view = (SampleView) part.getObject();
+		assertFalse(view.isDestroyed());
+
+		if (createPlaceholder) {
+			partStack.setSelectedElement(null);
+			partStack.getChildren().remove(placeholder);
+			perspective.getChildren().add(placeholder);
+		} else {
+			partStack.setSelectedElement(null);
+			partStack.getChildren().remove(part);
+			perspective.getChildren().add(part);
+		}
+
+		((Shell) detachedWindow.getWidget()).close();
+		assertFalse(view.isDestroyed());
+		assertFalse(perspective.getWindows().contains(detachedWindow));
+	}
+
+	public void testBug348069_DetachedPerspectiveWindow_02_TRUE() {
+		testBug348069_DetachedPerspectiveWindow_02(true);
+	}
+
+	public void testBug348069_DetachedPerspectiveWindow_02_FALSE() {
+		testBug348069_DetachedPerspectiveWindow_02(false);
+	}
+
+	public void testBug371100() {
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+
+		MPartStack stack = BasicFactoryImpl.eINSTANCE.createPartStack();
+		window.getChildren().add(stack);
+		window.setSelectedElement(stack);
+
+		MPart part = BasicFactoryImpl.eINSTANCE.createPart();
+		part.setVisible(false);
+		stack.getChildren().add(part);
+
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+		application.getChildren().add(window);
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		stack.setSelectedElement(part);
+		assertFalse(logged);
+	}
+
+	public void testBug372226() {
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+		application.getChildren().add(window);
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		Shell subShell = new Shell((Shell) window.getWidget());
+
+		MPart part = BasicFactoryImpl.eINSTANCE.createPart();
+		window.getSharedElements().add(part);
+
+		appContext.get(EModelService.class).hostElement(part, window, subShell,
+				window.getContext());
+		Control control = (Control) part.getWidget();
+		assertEquals(subShell, control.getParent());
+
+		appContext.get(EPartService.class).activate(part);
+		assertEquals(subShell, control.getParent());
+	}
+
+	public void testBug374326() {
+		MTrimmedWindow window = BasicFactoryImpl.eINSTANCE
+				.createTrimmedWindow();
+		MTrimBar trim = BasicFactoryImpl.eINSTANCE.createTrimBar();
+		window.getTrimBars().add(trim);
+
+		MToolBar toolBar = MenuFactoryImpl.eINSTANCE.createToolBar();
+		trim.getChildren().add(toolBar);
+
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+		application.getChildren().add(window);
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		MToolControl toolControl = MenuFactoryImpl.eINSTANCE
+				.createToolControl();
+		toolControl.setVisible(false);
+		toolControl
+				.setContributionURI("platform:/plugin/org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.Bug374326");
+		toolBar.getChildren().add(toolControl);
+		assertNull(toolControl.getObject());
+
+		toolControl.setVisible(true);
+
+		Bug374326 obj = (Bug374326) toolControl.getObject();
+		Shell shell = (Shell) window.getWidget();
+		assertEquals(shell, obj.getControl().getShell());
+	}
+
 	private MWindow createWindowWithOneView(String partName) {
 		final MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
 		window.setHeight(300);
@@ -2904,4 +3294,90 @@ public class PartRenderingEngineTests extends TestCase {
 		return window;
 	}
 
+	public void test369434() {
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+
+		MPerspectiveStack perspectiveStack = AdvancedFactoryImpl.eINSTANCE
+				.createPerspectiveStack();
+		window.getChildren().add(perspectiveStack);
+
+		MPerspective perspective = AdvancedFactoryImpl.eINSTANCE
+				.createPerspective();
+		perspective.setVisible(false);
+		perspectiveStack.getChildren().add(perspective);
+		perspectiveStack.setSelectedElement(perspective);
+
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+		application.getChildren().add(window);
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		assertFalse(logged);
+	}
+
+	public void test_persistState_371087() {
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+		application.getChildren().add(window);
+		application.setSelectedElement(window);
+
+		MPart part = BasicFactoryImpl.eINSTANCE.createPart();
+		part.setContributionURI("bundleclass://org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.SampleView");
+		window.getChildren().add(part);
+		window.setSelectedElement(part);
+
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		assertNotNull(part.getObject());
+		assertNotNull(part.getContext());
+
+		SampleView view = (SampleView) part.getObject();
+		view.errorOnWidgetDisposal = true;
+
+		part.setToBeRendered(false);
+		assertTrue("The view should have been destroyed",
+				view.isStatePersisted());
+		assertNull(part.getObject());
+		assertNull(part.getContext());
+	}
+
+	public void test_persistState_371087_1() {
+		MApplication application = ApplicationFactoryImpl.eINSTANCE
+				.createApplication();
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+		application.getChildren().add(window);
+		application.setSelectedElement(window);
+
+		MPart part = BasicFactoryImpl.eINSTANCE.createPart();
+		part.setContributionURI("bundleclass://org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.SampleView");
+		window.getChildren().add(part);
+		window.setSelectedElement(part);
+
+		application.setContext(appContext);
+		appContext.set(MApplication.class.getName(), application);
+
+		wb = new E4Workbench(application, appContext);
+		wb.createAndRunUI(window);
+
+		assertNotNull(part.getObject());
+		assertNotNull(part.getContext());
+
+		SampleView view = (SampleView) part.getObject();
+		view.errorOnWidgetDisposal = true;
+
+		window.setToBeRendered(false);
+		assertTrue("The view should have been destroyed",
+				view.isStatePersisted());
+		assertNull(part.getObject());
+		assertNull(part.getContext());
+	}
 }

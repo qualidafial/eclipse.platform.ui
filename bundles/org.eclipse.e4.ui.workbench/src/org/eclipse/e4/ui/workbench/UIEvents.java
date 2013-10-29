@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2011 IBM Corporation and others.
+ * Copyright (c) 2009, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,12 +10,15 @@
  ******************************************************************************/
 package org.eclipse.e4.ui.workbench;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.core.services.events.IEventBroker;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.internal.ModelUtils;
+import org.osgi.service.event.Event;
 
 /**
  * E4 UI events and event topic definitions.
@@ -26,6 +29,10 @@ import org.eclipse.e4.ui.model.internal.ModelUtils;
  * When the UI model changes org.eclipse.e4.ui.internal.workbench.swt.GenTopic should be run as an
  * Eclipse application and the console results should be pasted into this file replacing the code
  * below the "Place Generated Code Here" comment
+ * 
+ * @noextend This class is not intended to be subclassed by clients.
+ * @noinstantiate This class is not intended to be instantiated by clients.
+ * @since 1.0
  */
 public class UIEvents {
 
@@ -50,7 +57,7 @@ public class UIEvents {
 	public static final String UIModelTopicBase = UITopicBase + "/model"; //$NON-NLS-1$
 
 	/**
-	 * E4 UI Event Types
+	 * E4 UI Event Types. Add appropriate utility is<Test> method below if new types added
 	 */
 	public static interface EventTypes {
 		/**
@@ -62,13 +69,126 @@ public class UIEvents {
 		 */
 		public static final String SET = "SET"; //$NON-NLS-1$
 		/**
-		 * Add event
+		 * Add event: value added is {@link EventTags#NEW_VALUE}.
+		 * 
+		 * @see UIEvents#isADD(Event)
 		 */
 		public static final String ADD = "ADD"; //$NON-NLS-1$
 		/**
-		 * Remove event
+		 * Add many items: values added are {@link EventTags#NEW_VALUE}
+		 * 
+		 * @see UIEvents#isADD(Event)
+		 */
+		public static final String ADD_MANY = "ADD_MANY";//$NON-NLS-1$
+		/**
+		 * Remove event: value removed is {@link EventTags#OLD_VALUE}
+		 * 
+		 * @see UIEvents#isREMOVE(Event)
 		 */
 		public static final String REMOVE = "REMOVE"; //$NON-NLS-1$
+		/**
+		 * Remove many event: the values removed are the {@link EventTags#OLD_VALUE} (a collection).
+		 * The former positions of the removed values are provided as an integer array in
+		 * {@link EventTags#POSITION}.
+		 * 
+		 * @see UIEvents#isREMOVE(Event)
+		 */
+		public static final String REMOVE_MANY = "REMOVE_MANY"; //$NON-NLS-1$
+		/**
+		 * Value moved: the value moved is the {@link EventTags#NEW_VALUE}, the old position is
+		 * {@link EventTags#OLD_VALUE}, and the new position in {@link EventTags#POSITION}.
+		 */
+		public static final String MOVE = "MOVE"; //$NON-NLS-1$
+	}
+
+	/**
+	 * @param event
+	 *            An OSGI event representing a UIEvent
+	 * @return true if it is an add event (i.e., {@link EventTypes#ADD} or
+	 *         {@link EventTypes#ADD_MANY}), or false otherwise.
+	 * @see UIEvents.EventTags#NEW_VALUE
+	 * @see #asIterable(Event, String)
+	 */
+	public static boolean isADD(Event event) {
+		Object type = event.getProperty(UIEvents.EventTags.TYPE);
+		return UIEvents.EventTypes.ADD.equals(type) || UIEvents.EventTypes.ADD_MANY.equals(type);
+	}
+
+	/**
+	 * @param event
+	 *            An OSGI event representing a UIEvent
+	 * @return true if it is a remove event (i.e., {@link EventTypes#REMOVE} or
+	 *         {@link EventTypes#REMOVE_MANY}), or false otherwise.
+	 * @see UIEvents.EventTags#OLD_VALUE
+	 * @see #asIterable(Event, String)
+	 */
+	public static boolean isREMOVE(Event event) {
+		Object type = event.getProperty(UIEvents.EventTags.TYPE);
+		return UIEvents.EventTypes.REMOVE.equals(type)
+				|| UIEvents.EventTypes.REMOVE_MANY.equals(type);
+	}
+
+	/**
+	 * @param event
+	 *            An OSGI event representing a UIEvent
+	 * @return true if it is a set event, false otherwise.
+	 */
+	public static boolean isSET(Event event) {
+		return UIEvents.EventTypes.SET.equals(event.getProperty(UIEvents.EventTags.TYPE));
+	}
+
+	/**
+	 * @param event
+	 *            An OSGI event representing a UIEvent
+	 * @return true if it is a create event, false otherwise.
+	 */
+	public static boolean isCREATE(Event event) {
+		return UIEvents.EventTypes.CREATE.equals(event.getProperty(UIEvents.EventTags.TYPE));
+	}
+
+	/**
+	 * Return true if the specified property contains {@code o}. Intended as a helper function for
+	 * {@link EventTypes#ADD}, {@link EventTypes#ADD_MANY}, {@link EventTypes#REMOVE}, and
+	 * {@link EventTypes#REMOVE_MANY}. If the property is not a container (e.g., a collection or
+	 * array), then return true then if {@code container} is equal to {@code o}.
+	 * 
+	 * @param event
+	 *            the event
+	 * @param propertyName
+	 *            the property name
+	 * @param o
+	 *            the object to check for containment
+	 * @return true if the property value contains {@code o} or is equal to {@code o}
+	 */
+	public static boolean contains(Event event, String propertyName, Object o) {
+		Object container = event.getProperty(propertyName);
+		if (container == null) {
+			return false;
+		} else if (container instanceof Collection<?> && ((Collection<?>) container).contains(o)) {
+			return true;
+		} else if (container instanceof Object[]) {
+			for (Object element : (Object[]) container) {
+				if (o.equals(element)) {
+					return true;
+				}
+			}
+		}
+		return o.equals(container);
+	}
+
+	/**
+	 * Return the provided event property as an iterable. If already a collection, return the
+	 * collection.
+	 * 
+	 * @param event
+	 *            the event object
+	 * @param propertyName
+	 *            the name of the property
+	 * @return an iterable collection over the property elements
+	 */
+	public static Iterable<?> asIterable(Event event, String propertyName) {
+		Object o = event.getProperty(propertyName);
+		return o instanceof Collection<?> ? (Collection<?>) o : Collections.singleton(o);
 	}
 
 	/**
@@ -100,6 +220,10 @@ public class UIEvents {
 		 * The new value
 		 */
 		public static final String NEW_VALUE = "NewValue"; //$NON-NLS-1$
+		/**
+		 * The position (if applicable) of the change within the list.
+		 */
+		public static final String POSITION = "Position"; //$NON-NLS-1$
 	}
 
 	/**
@@ -131,6 +255,17 @@ public class UIEvents {
 		 * Sent when a perspective is opened
 		 */
 		public static final String PERSPECTIVE_OPENED = TOPIC + TOPIC_SEP + "perspOpened"; //$NON-NLS-1$
+		/**
+		 * Sent when application startup is complete
+		 */
+		public static final String APP_STARTUP_COMPLETE = TOPIC + TOPIC_SEP + "appStartupComplete"; //$NON-NLS-1$
+
+		/**
+		 * Sent when the theme is changed
+		 * 
+		 * @since 1.1
+		 */
+		public static final String THEME_CHANGED = TOPIC + TOPIC_SEP + "themeChanged"; //$NON-NLS-1$
 	}
 
 	/**
@@ -496,12 +631,14 @@ public class UIEvents {
 		public static final String TOPIC_ALL = "org/eclipse/e4/ui/model/application/ApplicationElement/*"; //$NON-NLS-1$
 		public static final String TOPIC_CONTRIBUTORURI = "org/eclipse/e4/ui/model/application/ApplicationElement/contributorURI/*"; //$NON-NLS-1$
 		public static final String TOPIC_ELEMENTID = "org/eclipse/e4/ui/model/application/ApplicationElement/elementId/*"; //$NON-NLS-1$
+		public static final String TOPIC_PERSISTEDSTATE = "org/eclipse/e4/ui/model/application/ApplicationElement/persistedState/*"; //$NON-NLS-1$
 		public static final String TOPIC_TAGS = "org/eclipse/e4/ui/model/application/ApplicationElement/tags/*"; //$NON-NLS-1$
 		public static final String TOPIC_TRANSIENTDATA = "org/eclipse/e4/ui/model/application/ApplicationElement/transientData/*"; //$NON-NLS-1$
 
 		// Attributes that can be tested in event handlers
 		public static final String CONTRIBUTORURI = "contributorURI"; //$NON-NLS-1$
 		public static final String ELEMENTID = "elementId"; //$NON-NLS-1$
+		public static final String PERSISTEDSTATE = "persistedState"; //$NON-NLS-1$
 		public static final String TAGS = "tags"; //$NON-NLS-1$
 		public static final String TRANSIENTDATA = "transientData"; //$NON-NLS-1$
 	}
@@ -517,12 +654,10 @@ public class UIEvents {
 		public static final String TOPIC_ALL = "org/eclipse/e4/ui/model/application/Contribution/*"; //$NON-NLS-1$
 		public static final String TOPIC_CONTRIBUTIONURI = "org/eclipse/e4/ui/model/application/Contribution/contributionURI/*"; //$NON-NLS-1$
 		public static final String TOPIC_OBJECT = "org/eclipse/e4/ui/model/application/Contribution/object/*"; //$NON-NLS-1$
-		public static final String TOPIC_PERSISTEDSTATE = "org/eclipse/e4/ui/model/application/Contribution/persistedState/*"; //$NON-NLS-1$
 
 		// Attributes that can be tested in event handlers
 		public static final String CONTRIBUTIONURI = "contributionURI"; //$NON-NLS-1$
 		public static final String OBJECT = "object"; //$NON-NLS-1$
-		public static final String PERSISTEDSTATE = "persistedState"; //$NON-NLS-1$
 	}
 
 	@SuppressWarnings("javadoc")

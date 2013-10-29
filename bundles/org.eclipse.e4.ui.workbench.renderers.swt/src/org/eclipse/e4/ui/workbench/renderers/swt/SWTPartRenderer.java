@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2009 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,7 +15,10 @@ import java.util.List;
 import java.util.Map;
 import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.core.services.log.Logger;
+import org.eclipse.e4.ui.css.core.engine.CSSEngine;
+import org.eclipse.e4.ui.css.swt.dom.WidgetElement;
 import org.eclipse.e4.ui.internal.workbench.swt.AbstractPartRenderer;
+import org.eclipse.e4.ui.internal.workbench.swt.CSSConstants;
 import org.eclipse.e4.ui.model.application.ui.MElementContainer;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.application.ui.MUILabel;
@@ -61,13 +64,28 @@ public abstract class SWTPartRenderer extends AbstractPartRenderer {
 		}
 	}
 
+	public void styleElement(MUIElement element, boolean active) {
+		if (!active)
+			element.getTags().remove(CSSConstants.CSS_ACTIVE_CLASS);
+		else
+			element.getTags().add(CSSConstants.CSS_ACTIVE_CLASS);
+
+		if (element.getWidget() != null)
+			setCSSInfo(element, element.getWidget());
+	}
+
 	public void setCSSInfo(MUIElement me, Object widget) {
 		// Set up the CSS Styling parameters; id & class
 		IEclipseContext ctxt = getContext(me);
-		if (ctxt == null)
+		if (ctxt == null) {
 			ctxt = getContext(me);
-		final IStylingEngine engine = (IStylingEngine) getContext(me).get(
-				IStylingEngine.SERVICE_NAME);
+		}
+		if (ctxt == null) {
+			return;
+		}
+
+		final IStylingEngine engine = (IStylingEngine) ctxt
+				.get(IStylingEngine.SERVICE_NAME);
 		if (engine == null)
 			return;
 
@@ -83,6 +101,14 @@ public abstract class SWTPartRenderer extends AbstractPartRenderer {
 			id = id.replace(".", "-"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 		engine.setClassnameAndId(widget, cssClassStr, id);
+	}
+
+	@SuppressWarnings("restriction")
+	protected void reapplyStyles(Widget widget) {
+		CSSEngine engine = WidgetElement.getEngine(widget);
+		if (engine != null) {
+			engine.applyStyles(widget, false);
+		}
 	}
 
 	public void bindWidget(MUIElement me, Object widget) {
@@ -282,4 +308,20 @@ public abstract class SWTPartRenderer extends AbstractPartRenderer {
 		return getModelElement(ctrl.getParent());
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * org.eclipse.e4.ui.internal.workbench.swt.AbstractPartRenderer#forceFocus
+	 * (org.eclipse.e4.ui.model.application.ui.MUIElement)
+	 */
+	@Override
+	public void forceFocus(MUIElement element) {
+		if (element.getWidget() instanceof Control) {
+			// Have SWT set the focus
+			Control ctrl = (Control) element.getWidget();
+			if (!ctrl.isDisposed())
+				ctrl.forceFocus();
+		}
+	}
 }

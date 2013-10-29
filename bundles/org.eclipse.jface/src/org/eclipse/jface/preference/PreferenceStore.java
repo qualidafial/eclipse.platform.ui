@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -426,12 +426,12 @@ public class PreferenceStore extends EventManager implements
 	 * @return an array of preference names
 	 */
 	public String[] preferenceNames() {
-		ArrayList list = new ArrayList();
-		Enumeration it = properties.propertyNames();
+		ArrayList<String> list = new ArrayList<String>();
+		Enumeration<String> it = (Enumeration<String>) properties.propertyNames();
 		while (it.hasMoreElements()) {
 			list.add(it.nextElement());
 		}
-		return (String[]) list.toArray(new String[list.size()]);
+		return list.toArray(new String[list.size()]);
 	}
 
 	/*

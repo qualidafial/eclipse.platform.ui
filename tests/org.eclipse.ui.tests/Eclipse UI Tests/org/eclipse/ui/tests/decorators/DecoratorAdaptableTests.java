@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2006 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,6 +9,8 @@
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.ui.tests.decorators;
+
+import junit.framework.TestSuite;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -27,6 +29,14 @@ import org.eclipse.ui.tests.menus.ObjectContributionClasses.ICommon;
 
 public class DecoratorAdaptableTests extends UITestCase {
 
+	public static TestSuite suite() {
+		TestSuite ts = new TestSuite();
+		ts.addTest(new DecoratorAdaptableTests("testAdaptables"));
+		ts.addTest(new DecoratorAdaptableTests("testNonAdaptableContributions"));
+		ts.addTest(new DecoratorAdaptableTests("testContributorResourceAdapter"));
+		return ts;
+	}
+	
     public DecoratorAdaptableTests(String testName) {
         super(testName);
     }

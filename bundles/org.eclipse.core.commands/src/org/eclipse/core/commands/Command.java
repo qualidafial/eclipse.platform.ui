@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2008 IBM Corporation and others.
+ * Copyright (c) 2004, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -83,6 +83,8 @@ public final class Command extends NamedHandleObjectWithState implements
 	 * collection is <code>null</code> if there are no listeners.
 	 */
 	private transient ListenerList executionListeners = null;
+	
+	boolean shouldFireEvents = true;
 
 	/**
 	 * The handler currently associated with this command. This value may be
@@ -403,24 +405,32 @@ public final class Command extends NamedHandleObjectWithState implements
 	 */
 	public final Object execute(final ExecutionEvent event)
 			throws ExecutionException, NotHandledException {
-		firePreExecute(event);
+		if (shouldFireEvents) {
+			firePreExecute(event);
+		}
 		final IHandler handler = this.handler;
 
 		// Perform the execution, if there is a handler.
 		if ((handler != null) && (handler.isHandled())) {
 			try {
 				final Object returnValue = handler.execute(event);
-				firePostExecuteSuccess(returnValue);
+				if (shouldFireEvents) {
+					firePostExecuteSuccess(returnValue);
+				}
 				return returnValue;
 			} catch (final ExecutionException e) {
-				firePostExecuteFailure(e);
+				if (shouldFireEvents) {
+					firePostExecuteFailure(e);
+				}
 				throw e;
 			}
 		}
 
 		final NotHandledException e = new NotHandledException(
 				"There is no handler to execute. " + getId()); //$NON-NLS-1$
-		fireNotHandled(e);
+		if (shouldFireEvents) {
+			fireNotHandled(e);
+		}
 		throw e;
 	}
 
@@ -451,14 +461,25 @@ public final class Command extends NamedHandleObjectWithState implements
 	public final Object executeWithChecks(final ExecutionEvent event)
 			throws ExecutionException, NotDefinedException,
 			NotEnabledException, NotHandledException {
-		firePreExecute(event);
+		if (shouldFireEvents) {
+			firePreExecute(event);
+		}
 		final IHandler handler = this.handler;
+		// workaround for the division of responsibilities to get
+		// bug 369159 working
+		if ((handler != null)
+				&& "org.eclipse.ui.internal.MakeHandlersGo".equals(handler.getClass() //$NON-NLS-1$
+								.getName())) {
+			return handler.execute(event);
+		}
 
 		if (!isDefined()) {
 			final NotDefinedException exception = new NotDefinedException(
 					"Trying to execute a command that is not defined. " //$NON-NLS-1$
 							+ getId());
-			fireNotDefined(exception);
+			if (shouldFireEvents) {
+				fireNotDefined(exception);
+			}
 			throw exception;
 		}
 
@@ -468,23 +489,31 @@ public final class Command extends NamedHandleObjectWithState implements
 			if (!isEnabled()) {
 				final NotEnabledException exception = new NotEnabledException(
 						"Trying to execute the disabled command " + getId()); //$NON-NLS-1$
-				fireNotEnabled(exception);
+				if (shouldFireEvents) {
+					fireNotEnabled(exception);
+				}
 				throw exception;
 			}
 
 			try {
 				final Object returnValue = handler.execute(event);
-				firePostExecuteSuccess(returnValue);
+				if (shouldFireEvents) {
+					firePostExecuteSuccess(returnValue);
+				}
 				return returnValue;
 			} catch (final ExecutionException e) {
-				firePostExecuteFailure(e);
+				if (shouldFireEvents) {
+					firePostExecuteFailure(e);
+				}
 				throw e;
 			}
 		}
 
 		final NotHandledException e = new NotHandledException(
 				"There is no handler to execute for command " + getId()); //$NON-NLS-1$
-		fireNotHandled(e);
+		if (shouldFireEvents) {
+			fireNotHandled(e);
+		}
 		throw e;
 	}
 

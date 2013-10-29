@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2009, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,6 +10,8 @@
  ******************************************************************************/
 
 package org.eclipse.ui.tests.commands;
+
+import junit.framework.TestSuite;
 
 import org.eclipse.core.commands.Command;
 import org.eclipse.core.commands.ExecutionException;
@@ -35,6 +37,14 @@ public class ToggleStateTest extends UITestCase {
 	private ICommandService commandService;
 	private IHandlerService handlerService;
 
+
+	public static TestSuite suite() {
+		TestSuite ts = new TestSuite();
+		ts.addTest(new ToggleStateTest("testDefaultValues"));
+		ts.addTest(new ToggleStateTest("testExceptionThrown"));
+		ts.addTest(new ToggleStateTest("testMultipleContributions"));
+		return ts;
+	}
 
 	public ToggleStateTest(String testName) {
 		super(testName);

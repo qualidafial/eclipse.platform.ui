@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 Angelo Zerr and others.
+ * Copyright (c) 2009, 2012 Angelo Zerr and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -86,10 +86,10 @@ public class ControlElement extends WidgetElement {
 		if (!dynamicEnabled) return; 
 		
 		Control control = getControl();
-		// Remove focus listener
-		control.removeFocusListener(focusListener);
-		// Add mouse track listener
-		control.removeMouseTrackListener(mouseHoverListener);
+		if (!control.isDisposed()) {
+			control.removeFocusListener(focusListener);
+			control.removeMouseTrackListener(mouseHoverListener);
+		}
 	}
 
 	public boolean isPseudoInstanceOf(String s) {

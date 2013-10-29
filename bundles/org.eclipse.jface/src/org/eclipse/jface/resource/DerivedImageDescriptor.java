@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2006 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -41,7 +41,8 @@ final class DerivedImageDescriptor extends ImageDescriptor {
         flags = swtFlags;
     }
     
-    public Object createResource(Device device) throws DeviceResourceException {
+    @Override
+	public Object createResource(Device device) throws DeviceResourceException {
         try {
             return internalCreateImage(device);
         } catch (SWTException e) {
@@ -49,15 +50,18 @@ final class DerivedImageDescriptor extends ImageDescriptor {
         }
     }
     
-    public Image createImage(Device device) {
+    @Override
+	public Image createImage(Device device) {
         return internalCreateImage(device);
     }
     
-    public int hashCode() {
+    @Override
+	public int hashCode() {
         return original.hashCode() + flags;
     }
     
-    public boolean equals(Object arg0) {
+    @Override
+	public boolean equals(Object arg0) {
         if (arg0 instanceof DerivedImageDescriptor) {
             DerivedImageDescriptor desc = (DerivedImageDescriptor)arg0;
             
@@ -83,7 +87,8 @@ final class DerivedImageDescriptor extends ImageDescriptor {
         return result;
     }
     
-    public ImageData getImageData() {
+    @Override
+	public ImageData getImageData() {
         Image image = internalCreateImage(Display.getCurrent());
         ImageData result = image.getImageData();
         image.dispose();

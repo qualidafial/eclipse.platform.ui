@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2009 Angelo Zerr and others.
+ * Copyright (c) 2008, 2012 Angelo Zerr and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,7 +16,6 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-
 import org.eclipse.e4.ui.css.core.util.resources.IResourceLocator;
 import org.eclipse.e4.ui.css.core.util.resources.IResourcesLocatorManager;
 import org.eclipse.e4.ui.css.core.utils.StringUtils;
@@ -48,7 +47,11 @@ public class ResourcesLocatorManager implements IResourcesLocatorManager {
 	public void registerResourceLocator(IResourceLocator resourceLocator) {
 		if (uriResolvers == null)
 			uriResolvers = new ArrayList();
-		uriResolvers.add(resourceLocator);
+		if (resourceLocator instanceof OSGiResourceLocator) {
+			uriResolvers.add(0, resourceLocator);
+		} else {
+			uriResolvers.add(resourceLocator);
+		}
 	}
 
 	/*
@@ -89,6 +92,7 @@ public class ResourcesLocatorManager implements IResourcesLocatorManager {
 			return null;
 		if (uriResolvers == null)
 			return null;
+		
 		// Loop for IResourceLocator registered and return the InputStream from
 		// the uri resolved
 		// as soon as an IResourceLocator return an uri resolved which is not

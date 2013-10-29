@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2010 Remy Chi Jian Suen and others.
+ * Copyright (c) 2009, 2012 Remy Chi Jian Suen and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,8 +14,8 @@ package org.eclipse.e4.ui.css.swt.properties.custom;
 import org.eclipse.e4.ui.css.core.dom.properties.ICSSPropertyHandler;
 import org.eclipse.e4.ui.css.core.engine.CSSEngine;
 import org.eclipse.e4.ui.css.swt.helpers.SWTElementHelpers;
-import org.eclipse.e4.ui.widgets.CTabItem;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Item;
@@ -97,7 +97,8 @@ public class CSSPropertyShowCloseHandler extends CTabETabHelper implements ICSSP
 			
 			Item selection = getSelection(e.widget);
 				
-			if (this.selection == selection) {
+			if (selection == null || selection.isDisposed()
+					|| this.selection == selection) {
 				return;
 			}
 

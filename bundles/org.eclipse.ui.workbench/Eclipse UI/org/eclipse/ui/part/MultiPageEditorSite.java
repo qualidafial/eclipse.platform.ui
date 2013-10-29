@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -131,14 +131,13 @@ public class MultiPageEditorSite implements IEditorSite, INestable {
 
 		IServiceLocatorCreator slc = (IServiceLocatorCreator) site
 				.getService(IServiceLocatorCreator.class);
-		this.serviceLocator = (ServiceLocator) slc.createServiceLocator(
+		context = site.getModel().getContext().createChild("MultiPageEditorSite"); //$NON-NLS-1$
+		serviceLocator = (ServiceLocator) slc.createServiceLocator(
 				multiPageEditor.getSite(), null, new IDisposable(){
 					public void dispose() {
 						getMultiPageEditor().close();
-					}});
-
-		context = site.getModel().getContext().createChild("MultiPageEditorSite"); //$NON-NLS-1$
-		serviceLocator.setContext(context);
+					}
+				}, context);
 
 		initializeDefaultServices();
 	}
@@ -161,7 +160,7 @@ public class MultiPageEditorSite implements IEditorSite, INestable {
 
 		context.set(IContextService.class.getName(), new ContextFunction() {
 			@Override
-			public Object compute(IEclipseContext ctxt) {
+			public Object compute(IEclipseContext ctxt, String contextKey) {
 				if (contextService == null) {
 					contextService = new NestableContextService(ctxt.getParent().get(
 							IContextService.class), new ActivePartExpression(multiPageEditor));
@@ -547,8 +546,8 @@ public class MultiPageEditorSite implements IEditorSite, INestable {
 		if (menuExtenders == null) {
 			menuExtenders = new ArrayList(1);
 		}
-		PartSite.registerContextMenu(menuID, menuMgr, selProvider, true,
-				editor, menuExtenders);
+		PartSite.registerContextMenu(menuID, menuMgr, selProvider, true, editor, context,
+				menuExtenders);
 	}
 
 	public final void registerContextMenu(final String menuId,
@@ -558,8 +557,8 @@ public class MultiPageEditorSite implements IEditorSite, INestable {
 		if (menuExtenders == null) {
 			menuExtenders = new ArrayList(1);
 		}
-		PartSite.registerContextMenu(menuId, menuManager, selectionProvider,
-				includeEditorInput, editor, menuExtenders);
+		PartSite.registerContextMenu(menuId, menuManager, selectionProvider, includeEditorInput,
+				editor, context, menuExtenders);
 	}
 
 	/**

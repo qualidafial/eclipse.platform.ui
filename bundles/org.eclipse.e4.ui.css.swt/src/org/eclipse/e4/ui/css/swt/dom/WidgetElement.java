@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008 Angelo Zerr and others.
+ * Copyright (c) 2008, 2013 Angelo Zerr and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -28,7 +28,8 @@ import org.w3c.dom.NodeList;
  */
 public class WidgetElement extends ElementAdapter implements NodeList {
 	
-	boolean dynamicEnabled = false;
+	boolean dynamicEnabled = Boolean
+			.getBoolean("org.eclipse.e4.ui.css.dynamic");
 	
 	/**
 	 * Convenience method for getting the CSS class of a widget.
@@ -81,7 +82,17 @@ public class WidgetElement extends ElementAdapter implements NodeList {
 	 * @param widget SWT widget which is styled by an engine
 	 */
 	public static CSSEngine getEngine(Widget widget) {
-		return (CSSEngine) widget.getDisplay().getData(CSSSWTConstants.CSS_ENGINE_KEY);
+		return getEngine(widget.getDisplay());
+	}
+
+	/**
+	 * Convenience method for getting the CSS engine responsible for a widget.
+	 * 
+	 * @param display
+	 *            SWT display which is styled by an engine
+	 */
+	public static CSSEngine getEngine(Display display) {
+		return (CSSEngine) display.getData(CSSSWTConstants.CSS_ENGINE_KEY);
 	}
 
 	/**
@@ -173,17 +184,32 @@ public class WidgetElement extends ElementAdapter implements NodeList {
 		} else if (attr.equals("class")) {
 			String result = getCSSClass(widget);
 			return result != null ? result : "";
+		} else if ("swt-data-class".equals(attr)) {
+			Object data = widget.getData();
+			if (data == null) {
+				return "";
+			}
+			StringBuilder sb = new StringBuilder();
+			for (Class<?> clazz = data.getClass(); clazz != Object.class; sb
+					.append(' ')) {
+				sb.append(clazz.getName());
+				clazz = clazz.getSuperclass();
+			}
+			return sb.toString();
 		}
 		Object o = widget.getData(attr.toLowerCase());
 		if (o != null)
 			return o.toString();
-		try {
-			//o = PropertyUtils.getProperty(widget, attr);
-			if (o != null)
-				return o.toString();
-		} catch (Exception e) {
-			// e.printStackTrace();
-		}
+
+		// FIXME: Commented out dead code. Filed https://bugs.eclipse.org/415442 to review this part of the code.
+//		try {
+//			//o = PropertyUtils.getProperty(widget, attr);
+//			if (o != null)
+//				return o.toString();
+//		} catch (Exception e) {
+//			// e.printStackTrace();
+//		}
+
 		return "";
 	}
 

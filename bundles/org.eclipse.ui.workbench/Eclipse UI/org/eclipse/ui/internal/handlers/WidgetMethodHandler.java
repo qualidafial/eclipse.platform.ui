@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -96,8 +96,7 @@ public class WidgetMethodHandler extends AbstractHandler implements
 							Runnable methodRunnable = new Runnable() {
 								public void run() {
 									try {
-										methodToExecute.invoke(focusComponent,
-												null);
+										methodToExecute.invoke(focusComponent);
 									} catch (final IllegalAccessException e) {
 										// The method is protected, so do
 										// nothing.
@@ -139,7 +138,7 @@ public class WidgetMethodHandler extends AbstractHandler implements
 
 				} else {
 
-					methodToExecute.invoke(focusControl, null);
+					methodToExecute.invoke(focusControl);
 				}
 
 			} catch (IllegalAccessException e) {
@@ -210,26 +209,26 @@ public class WidgetMethodHandler extends AbstractHandler implements
 		if (keyboardFocusManagerClass != null) {
 			// Use JRE 1.4 API
 			final Method keyboardFocusManagerGetCurrentKeyboardFocusManagerMethod = keyboardFocusManagerClass
-					.getMethod("getCurrentKeyboardFocusManager", null); //$NON-NLS-1$
+					.getMethod("getCurrentKeyboardFocusManager"); //$NON-NLS-1$
 			final Object keyboardFocusManager = keyboardFocusManagerGetCurrentKeyboardFocusManagerMethod
-					.invoke(keyboardFocusManagerClass, null);
+					.invoke(keyboardFocusManagerClass);
 			final Method keyboardFocusManagerGetFocusOwner = keyboardFocusManagerClass
-					.getMethod("getFocusOwner", null); //$NON-NLS-1$
+					.getMethod("getFocusOwner"); //$NON-NLS-1$
 			final Object focusComponent = keyboardFocusManagerGetFocusOwner
-					.invoke(keyboardFocusManager, null);
+					.invoke(keyboardFocusManager);
 			return focusComponent;
 		}
 		// Use JRE 1.3 API
 		final Class focusManagerClass = Class
 				.forName("javax.swing.FocusManager"); //$NON-NLS-1$
 		final Method focusManagerGetCurrentManagerMethod = focusManagerClass
-				.getMethod("getCurrentManager", null); //$NON-NLS-1$
+				.getMethod("getCurrentManager"); //$NON-NLS-1$
 		final Object focusManager = focusManagerGetCurrentManagerMethod
-		        .invoke(focusManagerClass, null);
+		        .invoke(focusManagerClass);
 		final Method focusManagerGetFocusOwner = focusManagerClass
-		        .getMethod("getFocusOwner", null); //$NON-NLS-1$
+		        .getMethod("getFocusOwner"); //$NON-NLS-1$
 		final Object focusComponent = focusManagerGetFocusOwner
-		        .invoke(focusManager, null);
+		        .invoke(focusManager);
 		return focusComponent;
 
 	}

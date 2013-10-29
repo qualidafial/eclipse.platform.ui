@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 Angelo Zerr and others.
+ * Copyright (c) 2009, 2012 Angelo Zerr and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,7 +14,9 @@ import org.eclipse.e4.ui.css.core.dom.CSSStylableElement;
 import org.eclipse.e4.ui.css.core.engine.CSSEngine;
 import org.eclipse.swt.events.ShellEvent;
 import org.eclipse.swt.events.ShellListener;
+import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Shell;
+import org.w3c.dom.Node;
 
 /**
  * {@link CSSStylableElement} implementation which wrap SWT {@link Shell}.
@@ -55,13 +57,18 @@ public class ShellElement extends CompositeElement {
 	public void initialize() {
 		super.initialize();
 
+		Shell shell = getShell();
+
 		if (!dynamicEnabled) return; 
 		
-		
-		Shell shell = getShell();
 		// Add Shell listener
 		shell.addShellListener(shellListener);
+	}
 
+	public Node getParentNode() {
+		// Shells are considered as root notes; see bug 375069 
+		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=375069
+		return null;
 	}
 
 	private Shell getShell() {
@@ -74,15 +81,46 @@ public class ShellElement extends CompositeElement {
 		if (!dynamicEnabled) return; 
 		
 		Shell shell = getShell();
-		// Remove Shell listener
-		shell.removeShellListener(shellListener);
+		if (!shell.isDisposed()) {
+			shell.removeShellListener(shellListener);
+		}
 	}
 
 	public boolean isPseudoInstanceOf(String s) {
 		if ("active".equals(s)) {
 			return this.isActive;
 		}
+		if ("swt-parented".equals(s)) {
+			return getShell().getParent() != null;
+		}
+		if ("swt-unparented".equals(s)) {
+			return getShell().getParent() == null;
+		}
 		return super.isPseudoInstanceOf(s);
 	}
-	
+
+	@Override
+	public String getAttribute(String attr) {
+		if("title".equals(attr)) {
+			String title = getShell().getText();
+			return title != null ? title : "";
+		}
+		if ("parentage".equals(attr)) {
+			Shell shell = getShell();
+			Composite parent = shell.getParent();
+			if (parent == null) {
+				return "";
+			}
+			StringBuilder sb = new StringBuilder();
+			do {
+				String id = WidgetElement.getID(parent);
+				if (id != null && id.length() > 0) {
+					sb.append(id).append(' ');
+				}
+				parent = parent.getParent();
+			} while (parent != null);
+			return sb.toString().trim();
+		}
+		return super.getAttribute(attr);
+	}
 }

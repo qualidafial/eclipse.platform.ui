@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -44,6 +44,12 @@ public class StandardPropertiesAdapterFactory implements IAdapterFactory {
      * Method declared on IAdapterFactory.
      */
     public Class[] getAdapterList() {
+        // org.eclipe.ui.views is an optional dependency
+        try {
+            Class.forName("org.eclipse.ui.views.properties.IPropertySource"); //$NON-NLS-1$
+        } catch(ClassNotFoundException e) {
+            return new Class[0];
+        }
         return new Class[] { IPropertySource.class };
     }
 }

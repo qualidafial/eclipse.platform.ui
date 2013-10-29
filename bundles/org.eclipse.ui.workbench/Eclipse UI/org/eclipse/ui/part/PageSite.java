@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -95,6 +95,7 @@ public class PageSite implements IPageSite, INestable {
 		// Initialize the service locator.
 		IServiceLocatorCreator slc = (IServiceLocatorCreator) parentSite
 				.getService(IServiceLocatorCreator.class);
+		e4Context = ((PartSite) parentViewSite).getContext().createChild("PageSite"); //$NON-NLS-1$
 		this.serviceLocator = (ServiceLocator) slc.createServiceLocator(parentViewSite, null,
 				new IDisposable() {
 					public void dispose() {
@@ -105,9 +106,7 @@ public class PageSite implements IPageSite, INestable {
 						// }
 						// TODO compat: not tsure what this should do
 					}
-				});
-		e4Context = ((PartSite) parentViewSite).getContext().createChild("PageSite"); //$NON-NLS-1$
-		serviceLocator.setContext(e4Context);
+				}, e4Context);
 		initializeDefaultServices();
 	}
 
@@ -134,7 +133,7 @@ public class PageSite implements IPageSite, INestable {
 
 		e4Context.set(IContextService.class.getName(), new ContextFunction() {
 			@Override
-			public Object compute(IEclipseContext context) {
+			public Object compute(IEclipseContext context, String contextKey) {
 				if (contextService == null) {
 					contextService = new NestableContextService(context.getParent().get(
 							IContextService.class), new ActivePartExpression(parentSite.getPart()));
@@ -241,8 +240,8 @@ public class PageSite implements IPageSite, INestable {
 		if (menuExtenders == null) {
 			menuExtenders = new ArrayList(1);
 		}
-		PartSite.registerContextMenu(menuID, menuMgr, selProvider, false,
-				parentSite.getPart(), menuExtenders);
+		PartSite.registerContextMenu(menuID, menuMgr, selProvider, false, parentSite.getPart(),
+				e4Context, menuExtenders);
 	}
 
 	/*
@@ -250,6 +249,10 @@ public class PageSite implements IPageSite, INestable {
 	 */
 	public void setSelectionProvider(ISelectionProvider provider) {
 		selectionProvider = provider;
+	}
+
+	/* Package */IEclipseContext getSiteContext() {
+		return e4Context;
 	}
 
 	/*
@@ -261,7 +264,7 @@ public class PageSite implements IPageSite, INestable {
 	 */
 	public void activate() {
 		active = true;
-		e4Context.activate();
+
 		serviceLocator.activate();
 
 		if (contextService != null) {
@@ -283,6 +286,5 @@ public class PageSite implements IPageSite, INestable {
 		}
 
 		serviceLocator.deactivate();
-		e4Context.deactivate();
 	}
 }

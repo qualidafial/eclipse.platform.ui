@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %pluginName
 Bundle-SymbolicName: org.eclipse.jface
-Bundle-Version: 3.8.0.qualifier
+Bundle-Version: 3.10.0.qualifier
 Bundle-ClassPath: .
 Bundle-Vendor: %providerName
 Bundle-Localization: plugin
@@ -19,8 +19,8 @@ Export-Package: org.eclipse.jface,
  org.eclipse.jface.fieldassist,
  org.eclipse.jface.fieldassist.images,
  org.eclipse.jface.images,
- org.eclipse.jface.internal;x-friends:="org.eclipse.ui.workbench",
- org.eclipse.jface.internal.provisional.action;x-friends:="org.eclipse.ui.workbench",
+ org.eclipse.jface.internal;x-friends:="org.eclipse.ui.workbench,org.eclipse.e4.ui.workbench.renderers.swt",
+ org.eclipse.jface.internal.provisional.action;x-friends:="org.eclipse.ui.workbench,org.eclipse.ui.ide",
  org.eclipse.jface.layout,
  org.eclipse.jface.menus,
  org.eclipse.jface.operation,
@@ -35,9 +35,9 @@ Export-Package: org.eclipse.jface,
  org.eclipse.jface.wizard.images
 Require-Bundle: org.eclipse.swt;bundle-version="[3.6.0,4.0.0)";visibility:=reexport,
  org.eclipse.core.commands;bundle-version="[3.4.0,4.0.0)";visibility:=reexport,
- org.eclipse.equinox.common;bundle-version="[3.3.0,4.0.0)"
-Bundle-RequiredExecutionEnvironment: J2SE-1.4,
- CDC-1.1/Foundation-1.1
+ org.eclipse.equinox.common;bundle-version="[3.3.0,4.0.0)",
+ org.eclipse.equinox.bidi;bundle-version="[0.10.0,2.0.0)";resolution:=optional
+Bundle-RequiredExecutionEnvironment: J2SE-1.5
 Import-Package: javax.xml.parsers,
  org.osgi.framework,
  org.w3c.dom,

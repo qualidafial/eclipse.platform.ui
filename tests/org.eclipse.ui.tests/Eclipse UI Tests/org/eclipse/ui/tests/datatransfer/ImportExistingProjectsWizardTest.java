@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -20,6 +20,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.zip.ZipFile;
+
+import junit.framework.TestSuite;
 
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
@@ -58,6 +60,7 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 	private static final String DATA_PATH_PREFIX = "data/org.eclipse.datatransferArchives/";
 	private static final String WS_DATA_PREFIX = "data/workspaces";
 	private static final String WS_DATA_LOCATION = "importExistingFromDirTest";
+	private static final String WS_NESTED_DATA_LOCATION = "importExistingNestedTest";
 	private static final String ARCHIVE_HELLOWORLD = "helloworld";
 	private static final String ARCHIVE_FILE_WITH_EMPTY_FOLDER = "EmptyFolderInArchive";
 	private static final String PROJECTS_ARCHIVE = "ProjectsArchive";
@@ -74,6 +77,26 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 
 	private boolean originalRefreshSetting;
 
+	public static TestSuite suite() {
+		TestSuite ts = new TestSuite();
+		ts.addTest(new ImportExistingProjectsWizardTest("testFindSingleZip"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testFindSingleTar"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testFindSingleDirectory"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testDoNotShowProjectWithSameName"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testImportSingleZip"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testImportZipWithEmptyFolder"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testImportSingleTar"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testImportTarWithEmptyFolder"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testImportSingleDirectory"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testImportSingleDirectoryWithCopy"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testImportSingleDirectoryWithCopyDeleteProjectKeepContents"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testImportZipDeleteContentsImportAgain"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testInitialValue"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testImportArchiveMultiProject"));
+		ts.addTest(new ImportExistingProjectsWizardTest("testGetProjectRecords"));
+		return ts;
+	}
+	
 	public ImportExistingProjectsWizardTest(String testName) {
 		super(testName);
 	}
@@ -95,7 +118,7 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 		super.doTearDown();
 		IWorkspaceRoot wsRoot = ResourcesPlugin.getWorkspace().getRoot();
 		IProject[] projects = wsRoot.getProjects();
-		for (int i = 0; i < projects.length; i++) {
+		for (int i = projects.length - 1; i >= 0; i--) {
 			FileUtil.deleteProject(projects[i]);
 		}
 		// clean up any data directories created
@@ -204,7 +227,7 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 
 	public void testFindSingleDirectory() {
 		try {
-			dataLocation = copyDataLocation();
+			dataLocation = copyDataLocation(WS_DATA_LOCATION);
 			IPath wsPath = new Path(dataLocation).append("HelloWorld");
 			WizardProjectsImportPage wpip = getNewWizard();
 			HashSet projects = new HashSet();
@@ -229,7 +252,7 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 
 	public void testDoNotShowProjectWithSameName() {
 		try {
-			dataLocation = copyDataLocation();
+			dataLocation = copyDataLocation(WS_DATA_LOCATION);
 			IPath wsPath = new Path(dataLocation);
 
 			FileUtil.createProject("HelloWorld");
@@ -480,7 +503,7 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 			for (int i = 0; i < workspaceProjects.length; i++)
 				FileUtil.deleteProject(workspaceProjects[i]);
 
-			dataLocation = copyDataLocation();
+			dataLocation = copyDataLocation(WS_DATA_LOCATION);
 			wsPath = new Path(dataLocation).append("HelloWorld");
 			WizardProjectsImportPage wpip = getNewWizard();
 			HashSet projects = new HashSet();
@@ -529,7 +552,7 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 			for (int i = 0; i < workspaceProjects.length; i++)
 				FileUtil.deleteProject(workspaceProjects[i]);
 
-			dataLocation = copyDataLocation();
+			dataLocation = copyDataLocation(WS_DATA_LOCATION);
 			wsPath = new Path(dataLocation).append("HelloWorld");
 			WizardProjectsImportPage wpip = getNewWizard();
 			HashSet projects = new HashSet();
@@ -582,7 +605,7 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 			for (int i = 0; i < workspaceProjects.length; i++)
 				FileUtil.deleteProject(workspaceProjects[i]);
 
-			dataLocation = copyDataLocation();
+			dataLocation = copyDataLocation(WS_DATA_LOCATION);
 			wsPath = new Path(dataLocation).append("HelloWorld");
 			WizardProjectsImportPage wpip = getNewWizard();
 			HashSet projects = new HashSet();
@@ -780,12 +803,83 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 
 	}
 	
+	public void testImportDirectoryNested() {
+		IPath wsPath = null;
+		try {
+			IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
+
+			IProject[] workspaceProjects = root.getProjects();
+			for (int i = 0; i < workspaceProjects.length; i++) {
+				FileUtil.deleteProject(workspaceProjects[i]);
+			}
+
+			dataLocation = copyDataLocation(WS_NESTED_DATA_LOCATION);
+			wsPath = new Path(dataLocation).append("A");
+			WizardProjectsImportPage wpip = getNewWizard();
+			HashSet projects = new HashSet();
+			projects.add("A");
+			projects.add("B");
+			projects.add("C");
+
+			wpip.getProjectFromDirectoryRadio().setSelection(true);
+			wpip.getNestedProjectsCheckbox().setSelection(true);
+			wpip.getCopyCheckbox().setSelection(false);
+			wpip.saveWidgetValues();
+			wpip.restoreWidgetValues();
+			
+			wpip.updateProjectsList(wsPath.toOSString());
+			ProjectRecord[] selectedProjects = wpip.getProjectRecords();
+			ArrayList projectNames = new ArrayList();
+			for (int i = 0; i < selectedProjects.length; i++) {
+				projectNames.add(selectedProjects[i].getProjectName());
+			}
+
+			assertTrue("Not all projects were found correctly in directory",
+					projectNames.containsAll(projects));
+
+			CheckboxTreeViewer projectsList = wpip.getProjectsList();
+			projectsList.setCheckedElements(selectedProjects);
+			wpip.createProjects(); // Try importing all the projects we found
+			waitForRefresh();
+
+			// "A", "B", and "C" should be the only projects in the workspace
+			workspaceProjects = root.getProjects();
+			if (workspaceProjects.length != 3) {
+				fail("Incorrect number of projects imported");
+			}
+			
+			IFolder aFolder = workspaceProjects[0].getFolder("A");
+			if (aFolder.exists()) {
+				fail("Project A was imported as a folder into itself");
+			}
+			
+			IFolder bFolder = workspaceProjects[1].getFolder("B");
+			if (bFolder.exists()) {
+				fail("Project B was imported as a folder into itself");
+			}
+			
+			IFolder cFolder = workspaceProjects[2].getFolder("C");
+			if (cFolder.exists()) {
+				fail("Project C was imported as a folder into itself");
+			}
+			
+			workspaceProjects[0].refreshLocal(IResource.DEPTH_INFINITE, null);
+
+			verifyProjectInWorkspace(false, workspaceProjects[0], FILE_LIST, true);
+			verifyProjectInWorkspace(false, workspaceProjects[1], FILE_LIST, true);
+			verifyProjectInWorkspace(false, workspaceProjects[2], FILE_LIST, true);
+		} catch (IOException e) {
+			fail(e.toString());
+		} catch (CoreException e) {
+			fail(e.toString());
+		}
+	}
 
 	public void testInitialValue() {
 
 		try {
 			IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
-			zipLocation = copyZipLocation();
+			zipLocation = copyZipLocation(WS_DATA_LOCATION);
 			IProject[] workspaceProjects = root.getProjects();
 			for (int i = 0; i < workspaceProjects.length; i++)
 				FileUtil.deleteProject(workspaceProjects[i]);
@@ -819,7 +913,7 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 	public void testImportArchiveMultiProject() {
 		try {
 			IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
-			zipLocation = copyZipLocation();
+			zipLocation = copyZipLocation(WS_DATA_LOCATION);
 
 			IProject[] workspaceProjects = root.getProjects();
 			for (int i = 0; i < workspaceProjects.length; i++)
@@ -909,7 +1003,7 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 			if (!res.exists())
 				filesNotImported.append(res.getName() + ", ");
 		}
-		assertTrue("Files expected but not in workspace: "
+		assertTrue("Files expected but not in workspace for project \"" + project.getName() + "\": "
 				+ filesNotImported.toString(), filesNotImported.length() == 0);
 	}
 
@@ -918,14 +1012,14 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 	 * 
 	 * @return the location
 	 */
-	private String copyDataLocation() throws IOException {
+	private String copyDataLocation(String dataLocation) throws IOException {
 		TestPlugin plugin = TestPlugin.getDefault();
 		if (plugin == null)
 			throw new IllegalStateException(
 					"TestPlugin default reference is null");
 
 		URL fullPathString = plugin.getDescriptor().find(
-				new Path(WS_DATA_PREFIX).append(WS_DATA_LOCATION + ".zip"));
+				new Path(WS_DATA_PREFIX).append(dataLocation + ".zip"));
 
 		if (fullPathString == null)
 			throw new IllegalArgumentException();
@@ -944,14 +1038,14 @@ public class ImportExistingProjectsWizardTest extends UITestCase {
 		return destination.getAbsolutePath();
 	}
 
-	private String copyZipLocation() throws IOException {
+	private String copyZipLocation(String zipLocation) throws IOException {
 		TestPlugin plugin = TestPlugin.getDefault();
 		if (plugin == null)
 			throw new IllegalStateException(
 					"TestPlugin default reference is null");
 
 		URL fullPathString = plugin.getDescriptor().find(
-				new Path(WS_DATA_PREFIX).append(WS_DATA_LOCATION + ".zip"));
+				new Path(WS_DATA_PREFIX).append(zipLocation + ".zip"));
 
 		if (fullPathString == null)
 			throw new IllegalArgumentException();

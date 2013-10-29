@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2008 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -18,6 +18,14 @@ import org.eclipse.e4.ui.model.application.MApplicationElement;
  * A representation of the model object '<em><b>Key Binding</b></em>'.
  * <!-- end-user-doc -->
  *
+ * <!-- begin-model-doc -->
+ * <p>
+ * Keybindings map a particular keyboard sequence (i.e. Ctrl + C for Copy...) onto
+ * some command.
+ * </p>
+ * @since 1.0
+ * <!-- end-model-doc -->
+ *
  * <p>
  * The following features are supported:
  * <ul>
@@ -33,11 +41,13 @@ public interface MKeyBinding extends MApplicationElement, MKeySequence {
 	/**
 	 * Returns the value of the '<em><b>Command</b></em>' reference.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Command</em>' reference isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * A reference to the Command to (attempt to) execute if the given key sequence is
+	 * detected.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Command</em>' reference.
 	 * @see #setCommand(MCommand)
 	 * @model required="true"
@@ -59,11 +69,14 @@ public interface MKeyBinding extends MApplicationElement, MKeySequence {
 	 * Returns the value of the '<em><b>Parameters</b></em>' containment reference list.
 	 * The list contents are of type {@link org.eclipse.e4.ui.model.application.commands.MParameter}.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Parameters</em>' containment reference list isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * This allows a KeyBinding to provide a particular set of parameters to be used when
+	 * the Command is to be executed. This allows generic commands like 'Open Part' to
+	 * have bindings that will open a <i>specific</i> Part...
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Parameters</em>' containment reference list.
 	 * @model containment="true"
 	 * @generated

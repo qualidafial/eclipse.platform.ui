@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2010 IBM Corporation and others.
+ * Copyright (c) 2004, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -42,7 +42,7 @@ public abstract class ResourceRegistry extends EventManager {
      * @return the set of keys this manager knows about.  This collection
      * should be immutable.
      */
-    public abstract Set getKeySet();
+    public abstract Set<String> getKeySet();
 
     /**
      * Return whether or not the receiver has a value for the supplied key.

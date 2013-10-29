@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2010 IBM Corporation and others.
+ * Copyright (c) 2009, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,9 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Tristan Hume - <trishume@gmail.com> -
+ *     		Fix for Bug 2369 [Workbench] Would like to be able to save workspace without exiting
+ *     		Implemented workbench auto-save to correctly restore state in case of crash.
  ******************************************************************************/
 
 package org.eclipse.e4.ui.internal.workbench;
@@ -14,6 +17,7 @@ package org.eclipse.e4.ui.internal.workbench;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.net.URLConnection;
 import java.util.Collection;
 import java.util.Collections;
@@ -22,14 +26,11 @@ import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 import org.eclipse.core.internal.runtime.PlatformURLPluginConnection;
 import org.eclipse.core.runtime.URIUtil;
 import org.eclipse.e4.core.contexts.ContextInjectionFactory;
 import org.eclipse.e4.core.contexts.IEclipseContext;
+import org.eclipse.e4.core.di.annotations.Optional;
 import org.eclipse.e4.core.services.log.Logger;
 import org.eclipse.e4.ui.model.application.MApplication;
 import org.eclipse.e4.ui.model.application.MApplicationElement;
@@ -40,6 +41,7 @@ import org.eclipse.e4.ui.model.application.ui.basic.impl.BasicPackageImpl;
 import org.eclipse.e4.ui.model.application.ui.impl.UiPackageImpl;
 import org.eclipse.e4.ui.model.application.ui.menu.impl.MenuPackageImpl;
 import org.eclipse.e4.ui.workbench.IModelResourceHandler;
+import org.eclipse.e4.ui.workbench.IWorkbench;
 import org.eclipse.e4.ui.workbench.modeling.IModelReconcilingService;
 import org.eclipse.e4.ui.workbench.modeling.ModelDelta;
 import org.eclipse.e4.ui.workbench.modeling.ModelReconciler;
@@ -59,12 +61,8 @@ import org.w3c.dom.Document;
  */
 public class ResourceHandler implements IModelResourceHandler {
 
-	private File workbenchData;
-
 	private ResourceSetImpl resourceSetImpl;
-	private URI restoreLocation;
 	private Resource resource;
-	private ModelReconciler reconciler;
 
 	@Inject
 	private Logger logger;
@@ -77,22 +75,29 @@ public class ResourceHandler implements IModelResourceHandler {
 	private URI applicationDefinitionInstance;
 
 	@Inject
+	@Optional
 	@Named(E4Workbench.INSTANCE_LOCATION)
 	private Location instanceLocation;
-
-	private boolean saveAndRestore;
-
-	private boolean clearPersistedState;
 
 	/**
 	 * Dictates whether the model should be stored using EMF or with the merging algorithm.
 	 * https://bugs.eclipse.org/bugs/show_bug.cgi?id=295524
+	 * 
 	 */
-	private boolean deltaRestore = true;
+	final private boolean deltaRestore;
+	final private boolean saveAndRestore;
+	final private boolean clearPersistedState;
 
+	/**
+	 * Constructor.
+	 * 
+	 * @param saveAndRestore
+	 * @param clearPersistedState
+	 * @param deltaRestore
+	 */
 	@Inject
-	public ResourceHandler(@Named(E4Workbench.PERSIST_STATE) boolean saveAndRestore,
-			@Named(E4Workbench.CLEAR_PERSISTED_STATE) boolean clearPersistedState,
+	public ResourceHandler(@Named(IWorkbench.PERSIST_STATE) boolean saveAndRestore,
+			@Named(IWorkbench.CLEAR_PERSISTED_STATE) boolean clearPersistedState,
 			@Named(E4Workbench.DELTA_RESTORE) boolean deltaRestore) {
 		this.saveAndRestore = saveAndRestore;
 		this.clearPersistedState = clearPersistedState;
@@ -121,76 +126,164 @@ public class ResourceHandler implements IModelResourceHandler {
 				.put(org.eclipse.e4.ui.model.application.descriptor.basic.impl.BasicPackageImpl.eNS_URI,
 						org.eclipse.e4.ui.model.application.descriptor.basic.impl.BasicPackageImpl.eINSTANCE);
 
-		// this.registry = registry;
-		try {
-			workbenchData = new File(URIUtil.toURI(instanceLocation.getURL()));
-		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		}
-		workbenchData = new File(workbenchData, ".metadata"); //$NON-NLS-1$
-		workbenchData = new File(workbenchData, ".plugins"); //$NON-NLS-1$
-		workbenchData = new File(workbenchData, "org.eclipse.e4.workbench"); //$NON-NLS-1$
+	}
 
-		if (deltaRestore) {
-			workbenchData = new File(workbenchData, "deltas.xml"); //$NON-NLS-1$	
-		} else {
-			workbenchData = new File(workbenchData, "workbench.xmi"); //$NON-NLS-1$			
-		}
+	public Resource loadMostRecentModel() {
+		// This is temporary code to migrate existing delta files into full models
+		if (deltaRestore && saveAndRestore && !clearPersistedState) {
+			File baseLocation = getBaseLocation();
+			File deltaFile = new File(baseLocation, "deltas.xml"); //$NON-NLS-1$
 
-		if (workbenchData != null && clearPersistedState) {
-			if (workbenchData.exists()) {
-				workbenchData.delete();
+			if (deltaFile.exists()) {
+				MApplication appElement = null;
+				try {
+					// create new resource in case code below fails somewhere
+					File workbenchData = getWorkbenchSaveLocation();
+					URI restoreLocationNew = URI.createFileURI(workbenchData.getAbsolutePath());
+					resource = resourceSetImpl.createResource(restoreLocationNew);
+
+					Resource oldResource = loadResource(applicationDefinitionInstance);
+					appElement = (MApplication) oldResource.getContents().get(0);
+
+					context.set(MApplication.class, appElement);
+					ModelAssembler contribProcessor = ContextInjectionFactory.make(
+							ModelAssembler.class, context);
+					contribProcessor.processModel();
+
+					File deltaOldFile = new File(baseLocation, "deltas_42M7migration.xml"); //$NON-NLS-1$
+					deltaFile.renameTo(deltaOldFile);
+					URI restoreLocation = URI.createFileURI(deltaOldFile.getAbsolutePath());
+
+					File file = new File(restoreLocation.toFileString());
+
+					if (file.exists()) {
+						Document document = DocumentBuilderFactory.newInstance()
+								.newDocumentBuilder().parse(file);
+						IModelReconcilingService modelReconcilingService = new ModelReconcilingService();
+						ModelReconciler modelReconciler = modelReconcilingService
+								.createModelReconciler();
+						document.normalizeDocument();
+						Collection<ModelDelta> deltas = modelReconciler.constructDeltas(oldResource
+								.getContents().get(0), document);
+						modelReconcilingService.applyDeltas(deltas);
+					}
+				} catch (Exception e) {
+					if (logger != null) {
+						logger.error(e);
+					}
+				}
+				if (appElement != null)
+					resource.getContents().add((EObject) appElement);
+				return resource;
 			}
 		}
 
-		if (workbenchData != null && saveAndRestore) {
+		File workbenchData = null;
+		URI restoreLocation = null;
+
+		if (saveAndRestore) {
+			workbenchData = getWorkbenchSaveLocation();
 			restoreLocation = URI.createFileURI(workbenchData.getAbsolutePath());
 		}
-	}
 
-	public long getLastStoreDatetime() {
+		if (clearPersistedState && workbenchData != null && workbenchData.exists()) {
+			workbenchData.delete();
+		}
+
+		// last stored time-stamp
 		long restoreLastModified = restoreLocation == null ? 0L : new File(
 				restoreLocation.toFileString()).lastModified();
-		return restoreLastModified;
-	}
 
-	public Resource loadRestoredModel() {
-		Activator.trace(Policy.DEBUG_WORKBENCH, "Restoring workbench: " + restoreLocation, null); //$NON-NLS-1$
-		resource = loadResource(restoreLocation);
-		return resource;
-	}
+		// See bug 380663, bug 381219
+		// long lastApplicationModification = getLastApplicationModification();
+		// boolean restore = restoreLastModified > lastApplicationModification;
+		boolean restore = restoreLastModified > 0;
 
-	public Resource loadBaseModel() {
-		Activator.trace(Policy.DEBUG_WORKBENCH,
-				"Initializing workbench: " + applicationDefinitionInstance, null); //$NON-NLS-1$
-		if (deltaRestore) {
-			resource = loadResource(applicationDefinitionInstance);
-		} else {
-			resource = new E4XMIResource();
-			MApplication theApp = loadDefaultModel(applicationDefinitionInstance);
-			resource.getContents().add((EObject) theApp);
-			resource.setURI(restoreLocation);
+		resource = null;
+		if (restore && saveAndRestore) {
+			resource = loadResource(restoreLocation);
 		}
+		if (resource == null) {
+			Resource applicationResource = loadResource(applicationDefinitionInstance);
+			MApplication theApp = (MApplication) applicationResource.getContents().get(0);
+			resource = createResourceWithApp(theApp);
+			context.set(E4Workbench.NO_SAVED_MODEL_FOUND, Boolean.TRUE);
+		}
+
+		// Add model items described in the model extension point
+		// This has to be done before commands are put into the context
+		MApplication appElement = (MApplication) resource.getContents().get(0);
+
+		this.context.set(MApplication.class, appElement);
+		ModelAssembler contribProcessor = ContextInjectionFactory.make(ModelAssembler.class,
+				context);
+		contribProcessor.processModel();
+
+		if (!clearPersistedState) {
+			CommandLineOptionModelProcessor processor = ContextInjectionFactory.make(
+					CommandLineOptionModelProcessor.class, context);
+			processor.process();
+		}
+
 		return resource;
 	}
 
-	private MApplication loadDefaultModel(URI defaultModelPath) {
-		Resource resource = loadResource(defaultModelPath);
-		MApplication app = (MApplication) resource.getContents().get(0);
-		return app;
+	public void save() throws IOException {
+		if (saveAndRestore)
+			resource.save(null);
+	}
+
+	/**
+	 * Creates a resource with an app Model, used for saving copies of the main app model.
+	 * 
+	 * @param theApp
+	 *            the application model to add to the resource
+	 * @return a resource with a proper save path with the model as contents
+	 */
+	public Resource createResourceWithApp(MApplication theApp) {
+		Resource res = createResource();
+		res.getContents().add((EObject) theApp);
+		return res;
+	}
+
+	private Resource createResource() {
+		if (saveAndRestore) {
+			URI saveLocation = URI.createFileURI(getWorkbenchSaveLocation().getAbsolutePath());
+			return resourceSetImpl.createResource(saveLocation);
+		}
+		return resourceSetImpl.createResource(URI.createURI("workbench.xmi")); //$NON-NLS-1$
+	}
+
+	private File getWorkbenchSaveLocation() {
+		File workbenchData = new File(getBaseLocation(), "workbench.xmi"); //$NON-NLS-1$
+		return workbenchData;
+	}
+
+	private File getBaseLocation() {
+		File baseLocation;
+		try {
+			baseLocation = new File(URIUtil.toURI(instanceLocation.getURL()));
+		} catch (URISyntaxException e) {
+			throw new RuntimeException(e);
+		}
+		baseLocation = new File(baseLocation, ".metadata"); //$NON-NLS-1$
+		baseLocation = new File(baseLocation, ".plugins"); //$NON-NLS-1$
+		baseLocation = new File(baseLocation, "org.eclipse.e4.workbench"); //$NON-NLS-1$
+		return baseLocation;
 	}
 
 	// Ensures that even models with error are loaded!
 	private Resource loadResource(URI uri) {
 		Resource resource;
 		try {
-			resource = resourceSetImpl.getResource(uri, true);
+			resource = getResource(uri);
 		} catch (Exception e) {
 			// TODO We could use diagnostics for better analyzing the error
-			logger.error(e);
-			resource = resourceSetImpl.getResource(uri, false);
+			logger.error(e, "Unable to load resource " + uri.toString()); //$NON-NLS-1$
+			return null;
 		}
 
+		// TODO once we switch from deltas, we only need this once on the default model?
 		String contributorURI = URIHelper.EMFtoPlatform(uri);
 		if (contributorURI != null) {
 			TreeIterator<EObject> it = EcoreUtil.getAllContents(resource.getContents());
@@ -204,101 +297,23 @@ public class ResourceHandler implements IModelResourceHandler {
 		return resource;
 	}
 
-	public void save() throws IOException {
-		if (saveAndRestore) {
-			if (deltaRestore && reconciler != null) {
-				try {
-					Document document = (Document) reconciler.serialize();
-
-					// Use a Transformer for output
-					TransformerFactory tFactory = TransformerFactory.newInstance();
-					Transformer transformer = tFactory.newTransformer();
-
-					DOMSource source = new DOMSource(document);
-					File f = new File(restoreLocation.toFileString());
-					f.getParentFile().mkdirs();
-					StreamResult result = new StreamResult(f);
-					transformer.transform(source, result);
-				} catch (Exception e) {
-					if (logger != null) {
-						logger.error(e);
-					}
-				}
-			} else {
-				resource.save(null);
-			}
-		}
-	}
-
-	public Resource loadMostRecentModel() {
-		if (deltaRestore) {
-			try {
-				Resource resource = loadBaseModel();
-				MApplication appElement = (MApplication) resource.getContents().get(0);
-				// Add model items described in the model extension point
-				// This has to be done before commands are put into the context
-				// ModelExtensionProcessor extProcessor = new ModelExtensionProcessor(appElement);
-				// extProcessor.addModelExtensions();
-
-				this.context.set(MApplication.class, appElement);
-				ModelAssembler contribProcessor = ContextInjectionFactory.make(
-						ModelAssembler.class, context);
-				contribProcessor.processModel();
-
-				if (restoreLocation != null) {
-					File file = new File(restoreLocation.toFileString());
-					reconciler = new XMLModelReconciler();
-					reconciler.recordChanges(appElement);
-
-					if (file.exists()) {
-						Document document = DocumentBuilderFactory.newInstance()
-								.newDocumentBuilder().parse(file);
-						IModelReconcilingService modelReconcilingService = new ModelReconcilingService();
-						ModelReconciler modelReconciler = modelReconcilingService
-								.createModelReconciler();
-						document.normalizeDocument();
-						Collection<ModelDelta> deltas = modelReconciler.constructDeltas(resource
-								.getContents().get(0), document);
-						modelReconcilingService.applyDeltas(deltas);
-					}
-				}
-			} catch (Exception e) {
-				if (logger != null) {
-					logger.error(e);
-				}
-			}
-			return resource;
-		}
-
-		long restoreLastModified = getLastStoreDatetime();
-		long lastApplicationModification = getLastApplicationModification();
-
-		boolean restore = restoreLastModified > lastApplicationModification;
-
+	private Resource getResource(URI uri) throws Exception {
 		Resource resource;
-		if (restore && saveAndRestore) {
-			resource = loadRestoredModel();
+		if (saveAndRestore) {
+			resource = resourceSetImpl.getResource(uri, true);
 		} else {
-			resource = loadBaseModel();
+			// Workaround for java.lang.IllegalStateException: No instance data can be specified
+			// thrown by org.eclipse.core.internal.runtime.DataArea.assertLocationInitialized
+			// The DataArea.assertLocationInitialized is called by ResourceSetImpl.getResource(URI,
+			// boolean)
+			resource = resourceSetImpl.createResource(uri);
+			resource.load(new URL(uri.toString()).openStream(), resourceSetImpl.getLoadOptions());
 		}
-
-		// Add model items described in the model extension point
-		// This has to be done before commands are put into the context
-		MApplication appElement = (MApplication) resource.getContents().get(0);
-
-		this.context.set(MApplication.class, appElement);
-		ModelAssembler contribProcessor = ContextInjectionFactory.make(ModelAssembler.class,
-				context);
-		contribProcessor.processModel();
 
 		return resource;
 	}
 
-	/**
-	 * @param applicationDefinitionInstance2
-	 * @return
-	 */
-	public long getLastApplicationModification() {
+	protected long getLastApplicationModification() {
 		long appLastModified = 0L;
 		ResourceSetImpl resourceSetImpl = new ResourceSetImpl();
 
@@ -313,10 +328,22 @@ public class ResourceHandler implements IModelResourceHandler {
 		} else if (applicationDefinitionInstance.isPlatformPlugin()) {
 			try {
 				java.net.URL url = new java.net.URL(applicationDefinitionInstance.toString());
+				// can't just use 'url.openConnection()' as it usually returns a
+				// PlatformURLPluginConnection which doesn't expose the
+				// last-modification time. So we try to resolve the file through
+				// the bundle to obtain a BundleURLConnection instead.
 				Object[] obj = PlatformURLPluginConnection.parse(url.getFile().trim(), url);
 				Bundle b = (Bundle) obj[0];
-				URLConnection openConnection = b.getResource((String) obj[1]).openConnection();
-				appLastModified = openConnection.getLastModified();
+				// first try to resolve as an bundle file entry, then as a resource using
+				// the bundle's classpath
+				java.net.URL resolved = b.getEntry((String) obj[1]);
+				if (resolved == null) {
+					resolved = b.getResource((String) obj[1]);
+				}
+				if (resolved != null) {
+					URLConnection openConnection = resolved.openConnection();
+					appLastModified = openConnection.getLastModified();
+				}
 			} catch (Exception e) {
 				// ignore
 			}

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -30,7 +30,7 @@ import org.eclipse.ui.IPageLayout;
 import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.activities.WorkbenchActivityHelper;
-import org.eclipse.ui.internal.WorkbenchMessages;
+import org.eclipse.ui.internal.IWorkbenchConstants;
 import org.eclipse.ui.internal.WorkbenchPlugin;
 import org.eclipse.ui.internal.e4.compatibility.CompatibilityPart;
 import org.eclipse.ui.internal.menus.MenuHelper;
@@ -54,7 +54,9 @@ public class ViewRegistry implements IViewRegistry {
 
 	private List<IStickyViewDescriptor> stickyDescriptors = new ArrayList<IStickyViewDescriptor>();
 
-	private List<ViewCategory> categories = new ArrayList<ViewCategory>();
+	private HashMap<String, ViewCategory> categories = new HashMap<String, ViewCategory>();
+
+	private Category miscCategory = new Category();
 
 	@PostConstruct
 	void postConstruct() {
@@ -66,7 +68,7 @@ public class ViewRegistry implements IViewRegistry {
 					ViewCategory category = new ViewCategory(
 							element.getAttribute(IWorkbenchRegistryConstants.ATT_ID),
 							element.getAttribute(IWorkbenchRegistryConstants.ATT_NAME));
-					categories.add(category);
+					categories.put(category.getId(), category);
 				} else if (element.getName().equals(IWorkbenchRegistryConstants.TAG_STICKYVIEW)) {
 					try {
 						stickyDescriptors.add(new StickyViewDescriptor(element));
@@ -78,68 +80,86 @@ public class ViewRegistry implements IViewRegistry {
 				}
 			}
 		}
+		if (!categories.containsKey(miscCategory.getId())) {
+			categories.put(miscCategory.getId(), new ViewCategory(miscCategory.getId(),
+					miscCategory.getLabel()));
+		}
 
 		for (IExtension extension : point.getExtensions()) {
 			for (IConfigurationElement element : extension.getConfigurationElements()) {
 				if (element.getName().equals(IWorkbenchRegistryConstants.TAG_VIEW)) {
-					MPartDescriptor descriptor = BasicFactoryImpl.eINSTANCE.createPartDescriptor();
-					descriptor.setLabel(element.getAttribute(IWorkbenchRegistryConstants.ATT_NAME));
-					String id = element.getAttribute(IWorkbenchRegistryConstants.ATT_ID);
-					descriptor.setElementId(id);
-					if (id.equals(IPageLayout.ID_RES_NAV)
-							|| id.equals(IPageLayout.ID_PROJECT_EXPLORER)) {
-						descriptor.setCategory("org.eclipse.e4.primaryNavigationStack"); //$NON-NLS-1$
-					} else if (id.equals(IPageLayout.ID_OUTLINE)) {
-						descriptor.setCategory("org.eclipse.e4.secondaryNavigationStack"); //$NON-NLS-1$
-					} else {
-						descriptor.setCategory("org.eclipse.e4.secondaryDataStack"); //$NON-NLS-1$
-					}
-
-					List<String> tags = descriptor.getTags();
-					tags.add("View"); //$NON-NLS-1$
-
-					descriptor.setCloseable(true);
-					descriptor.setAllowMultiple(Boolean.parseBoolean(element
-							.getAttribute(IWorkbenchRegistryConstants.ATT_ALLOW_MULTIPLE)));
-					descriptor.setContributionURI(CompatibilityPart.COMPATIBILITY_VIEW_URI);
-
-					String iconURI = element.getAttribute(IWorkbenchRegistryConstants.ATT_ICON);
-					if (iconURI == null) {
-						descriptor.setIconURI(MenuHelper.getImageUrl(workbench.getSharedImages()
-								.getImageDescriptor(ISharedImages.IMG_DEF_VIEW)));
-					} else if (!iconURI.startsWith("platform:/plugin/")) { //$NON-NLS-1$
-						StringBuilder builder = new StringBuilder("platform:/plugin/"); //$NON-NLS-1$
-						builder.append(element.getContributor().getName()).append('/');
-
-						// FIXME: need to get rid of $nl$ properly
-						if (iconURI.startsWith("$nl$")) { //$NON-NLS-1$
-							iconURI = iconURI.substring(4);
-						}
-
-						builder.append(iconURI);
-						descriptor.setIconURI(builder.toString());
-					} else {
-						descriptor.setIconURI(iconURI);
-					}
-
-					ViewDescriptor viewDescriptor = new ViewDescriptor(application, descriptor,
-							element);
-
-					application.getDescriptors().add(descriptor);
-					descriptors.put(descriptor.getElementId(), viewDescriptor);
-
-					String categoryId = element
-							.getAttribute(IWorkbenchRegistryConstants.ATT_CATEGORY);
-					ViewCategory category = findCategory(categoryId);
-
-					if (category == null) {
-						tags.add("categoryTag:" + WorkbenchMessages.ICategory_other); //$NON-NLS-1$	
-					} else {
-						tags.add("categoryTag:" + category.getLabel()); //$NON-NLS-1$
-						category.addDescriptor(viewDescriptor);
-					}
+					createDescriptor(element, false);
+				}
+				if (element.getName().equals("e4view")) { //$NON-NLS-1$
+					createDescriptor(element, true);
 				}
 			}
+		}
+	}
+
+	private void createDescriptor(IConfigurationElement element, boolean e4View) {
+		String id = element.getAttribute(IWorkbenchRegistryConstants.ATT_ID);
+		MPartDescriptor descriptor = null;
+		List<MPartDescriptor> currentDescriptors = application.getDescriptors();
+		for (MPartDescriptor desc : currentDescriptors) {
+			// do we have a matching descriptor?
+			if (desc.getElementId().equals(id)) {
+				descriptor = desc;
+				break;
+			}
+		}
+		if (descriptor == null) { // create a new descriptor
+			descriptor = BasicFactoryImpl.eINSTANCE.createPartDescriptor();
+			descriptor.setElementId(id);
+			application.getDescriptors().add(descriptor);
+		}
+		// ==> Update descriptor
+		descriptor.setLabel(element.getAttribute(IWorkbenchRegistryConstants.ATT_NAME));
+		if (id.equals(IPageLayout.ID_RES_NAV) || id.equals(IPageLayout.ID_PROJECT_EXPLORER)) {
+			descriptor.setCategory("org.eclipse.e4.primaryNavigationStack"); //$NON-NLS-1$
+		} else if (id.equals(IPageLayout.ID_OUTLINE)) {
+			descriptor.setCategory("org.eclipse.e4.secondaryNavigationStack"); //$NON-NLS-1$
+		} else {
+			descriptor.setCategory("org.eclipse.e4.secondaryDataStack"); //$NON-NLS-1$
+		}
+
+		List<String> tags = descriptor.getTags();
+		tags.add("View"); //$NON-NLS-1$
+
+		descriptor.setCloseable(true);
+		descriptor.setAllowMultiple(Boolean.parseBoolean(element
+				.getAttribute(IWorkbenchRegistryConstants.ATT_ALLOW_MULTIPLE)));
+
+		// Is this an E4 part or a legacy IViewPart ?
+		String clsSpec = element.getAttribute(IWorkbenchConstants.TAG_CLASS);
+		String implementationURI = CompatibilityPart.COMPATIBILITY_VIEW_URI;
+		if (e4View) {
+			implementationURI = "bundleclass://" + element.getContributor().getName() + "/" + clsSpec; //$NON-NLS-1$//$NON-NLS-2$			
+		}
+		descriptor.setContributionURI(implementationURI);
+
+		String iconURI = MenuHelper.getIconURI(element, IWorkbenchRegistryConstants.ATT_ICON);
+		if (iconURI == null) {
+			descriptor.setIconURI(MenuHelper.getImageUrl(workbench.getSharedImages()
+					.getImageDescriptor(ISharedImages.IMG_DEF_VIEW)));
+		} else {
+			descriptor.setIconURI(iconURI);
+		}
+
+		String categoryId = element.getAttribute(IWorkbenchRegistryConstants.ATT_CATEGORY);
+		ViewCategory category = findCategory(categoryId);
+		if (category == null) {
+			category = findCategory(miscCategory.getId());
+		}
+		if (category != null) {
+			tags.add("categoryTag:" + category.getLabel()); //$NON-NLS-1$
+		}
+		// ==> End of update descriptor
+
+		ViewDescriptor viewDescriptor = new ViewDescriptor(application, descriptor, element);
+		descriptors.put(descriptor.getElementId(), viewDescriptor);
+		if (category != null) {
+			category.addDescriptor(viewDescriptor);
 		}
 	}
 
@@ -157,7 +177,7 @@ public class ViewRegistry implements IViewRegistry {
 	 * @see org.eclipse.ui.views.IViewRegistry#getCategories()
 	 */
 	public IViewCategory[] getCategories() {
-		return categories.toArray(new IViewCategory[categories.size()]);
+		return categories.values().toArray(new IViewCategory[categories.size()]);
 	}
 
 	/*
@@ -189,21 +209,23 @@ public class ViewRegistry implements IViewRegistry {
 
 	}
 
+	/**
+	 * Returns the {@link ViewCategory} for the given id or <code>null</code> if
+	 * one cannot be found or the id is <code>null</code>
+	 * 
+	 * @param id
+	 *            the {@link ViewCategory} id
+	 * @return the {@link ViewCategory} with the given id or <code>null</code>
+	 */
 	public ViewCategory findCategory(String id) {
 		if (id == null) {
-			return null;
+			return categories.get(miscCategory.getId());
 		}
-		for (ViewCategory category : categories) {
-			if (id.equals(category.getId())) {
-				return category;
-			}
-		}
-		return null;
+		return categories.get(id);
 	}
 
 	public Category getMiscCategory() {
-		// TODO Auto-generated method stub
-		return null;
+		return miscCategory;
 	}
 
 }

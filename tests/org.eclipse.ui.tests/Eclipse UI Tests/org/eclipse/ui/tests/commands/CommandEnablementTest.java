@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2009 IBM Corporation and others.
+ * Copyright (c) 2007, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -278,7 +278,7 @@ public class CommandEnablementTest extends UITestCase {
 		IMenuService menuService = (IMenuService) fWorkbench.getService(IMenuService.class);
 		menuService.populateContributionManager(manager, MenuUtil.menuUri(menuId));
 		IContributionItem[] items = manager.getItems();
-		assertTrue(items.length ==1);
+		assertEquals(1, items.length);
 		assertTrue(items[0] instanceof CommandContributionItem);
 		CommandContributionItem item = (CommandContributionItem) items[0];
 

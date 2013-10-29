@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2009 IBM Corporation and others.
+ * Copyright (c) 2003, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -29,6 +29,7 @@ public final class CommandsTestSuite extends TestSuite {
 	 * Construct the test suite.
 	 */
 	public CommandsTestSuite() {
+		addTest(new TestSuite(CommandExecutionTest.class));
 		addTest(new TestSuite(Bug66182Test.class));
 		addTest(new TestSuite(Bug70503Test.class));
 		addTest(new TestSuite(Bug73756Test.class));
@@ -36,6 +37,7 @@ public final class CommandsTestSuite extends TestSuite {
 		addTest(new TestSuite(Bug74990Test.class));
 		addTest(new TestSuite(Bug87856Test.class));
 		addTest(new TestSuite(Bug125792Test.class));
+		addTest(new TestSuite(Bug417762Test.class));
 		addTest(new TestSuite(CommandManagerTest.class));
 		addTest(new TestSuite(CommandParameterTypeTest.class));
 		addTest(new TestSuite(CommandSerializationTest.class));
@@ -46,7 +48,7 @@ public final class CommandsTestSuite extends TestSuite {
 		addTest(new TestSuite(CommandEnablementTest.class));
 		addTest(new TestSuite(CommandActionTest.class));
 		addTest(new TestSuite(ActionDelegateProxyTest.class));
-		addTest(new TestSuite(ToggleStateTest.class));
+		addTest(ToggleStateTest.suite());
 		addTest(new TestSuite(RadioStateTest.class));
 	}
 }

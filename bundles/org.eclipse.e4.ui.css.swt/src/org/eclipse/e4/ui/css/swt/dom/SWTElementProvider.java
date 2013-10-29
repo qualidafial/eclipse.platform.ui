@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008 Angelo Zerr and others.
+ * Copyright (c) 2008, 2012 Angelo Zerr and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,12 +10,11 @@
  *******************************************************************************/
 package org.eclipse.e4.ui.css.swt.dom;
 
-import org.eclipse.e4.ui.widgets.CTabFolder;
-import org.eclipse.e4.ui.widgets.CTabItem;
-
 import org.eclipse.e4.ui.css.core.dom.CSSStylableElement;
 import org.eclipse.e4.ui.css.core.dom.IElementProvider;
 import org.eclipse.e4.ui.css.core.engine.CSSEngine;
+import org.eclipse.swt.custom.CTabFolder;
+import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
@@ -24,6 +23,8 @@ import org.eclipse.swt.widgets.Scale;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
+import org.eclipse.swt.widgets.ToolBar;
+import org.eclipse.swt.widgets.ToolItem;
 import org.eclipse.swt.widgets.Widget;
 import org.w3c.dom.Element;
 
@@ -73,6 +74,11 @@ public class SWTElementProvider implements IElementProvider {
 		if (element instanceof CTabFolder) {
 			return new CTabFolderElement((CTabFolder) element, engine);
 		}
+		if (element instanceof ToolBar) {
+			return new ToolBarElement((ToolBar) element, engine);
+		}
+
+		
 		if (element instanceof Composite) {
 			return new CompositeElement((Composite) element, engine);
 		}
@@ -84,6 +90,9 @@ public class SWTElementProvider implements IElementProvider {
 		}
 		if (element instanceof TableItem) {
 			return new TableItemElement((TableItem) element, engine);
+		}
+		if (element instanceof ToolItem) {
+			return new ToolItemElement((ToolItem) element, engine);
 		}
 		if (element instanceof Item) {
 			return new ItemElement((Item) element, engine);

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2007 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -39,7 +39,10 @@ public class UIExtensionTracker extends ExtensionTracker {
 	}
 
 	protected void applyRemove(final IExtensionChangeHandler handler, final IExtension removedExtension, final Object[] objects) {
-        display.syncExec(new Runnable() {
+		if (display.isDisposed())
+			return;
+
+		display.syncExec(new Runnable() {
 
             public void run() {
                 try {
@@ -52,6 +55,9 @@ public class UIExtensionTracker extends ExtensionTracker {
     }
 
     protected void applyAdd(final IExtensionChangeHandler handler, final IExtension addedExtension) {
+		if (display.isDisposed())
+			return;
+
         display.syncExec(new Runnable() {
             public void run() {
                 try {

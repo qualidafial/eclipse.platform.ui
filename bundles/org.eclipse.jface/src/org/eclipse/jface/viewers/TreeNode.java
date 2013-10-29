@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2007 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -56,6 +56,7 @@ public class TreeNode {
 		this.value = value;
 	}
 	
+	@Override
 	public boolean equals(final Object object) {
 		if (object instanceof TreeNode) {
 			return Util.equals(this.value, ((TreeNode) object).value);
@@ -108,6 +109,7 @@ public class TreeNode {
 		return children != null && children.length > 0;
 	}
 	
+	@Override
 	public int hashCode() {
 		return Util.hashCode(value);
 	}

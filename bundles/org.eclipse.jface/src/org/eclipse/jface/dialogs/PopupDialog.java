@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2010 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -111,6 +111,7 @@ public class PopupDialog extends Window {
 	 * 
 	 * @deprecated Since 3.4, this is retained only for backward compatibility.
 	 */
+	@Deprecated
 	private static final String DIALOG_USE_PERSISTED_BOUNDS = "DIALOG_USE_PERSISTED_BOUNDS"; //$NON-NLS-1$
 
 	/**
@@ -121,6 +122,7 @@ public class PopupDialog extends Window {
 	 * @deprecated This is marked deprecated at its introduction to discourage
 	 *             future dependency
 	 */
+	@Deprecated
 	private static final String DIALOG_VALUE_MIGRATED_TO_34 = "hasBeenMigratedTo34"; //$NON-NLS-1$
 
 	/**
@@ -150,6 +152,7 @@ public class PopupDialog extends Window {
 		 * 
 		 * @see org.eclipse.jface.action.IAction#run()
 		 */
+		@Override
 		public void run() {
 			performTrackerAction(SWT.NONE);
 		}
@@ -169,6 +172,7 @@ public class PopupDialog extends Window {
 		/*
 		 * @see org.eclipse.jface.action.Action#run()
 		 */
+		@Override
 		public void run() {
 			performTrackerAction(SWT.RESIZE);
 		}
@@ -191,6 +195,7 @@ public class PopupDialog extends Window {
 		 * 
 		 * @see org.eclipse.jface.action.IAction#run()
 		 */
+		@Override
 		public void run() {
 			persistSize = isChecked();
 			persistLocation = persistSize;
@@ -214,6 +219,7 @@ public class PopupDialog extends Window {
 		 * 
 		 * @see org.eclipse.jface.action.IAction#run()
 		 */
+		@Override
 		public void run() {
 			persistSize = isChecked();
 		}
@@ -236,6 +242,7 @@ public class PopupDialog extends Window {
 		 * 
 		 * @see org.eclipse.jface.action.IAction#run()
 		 */
+		@Override
 		public void run() {
 			persistLocation = isChecked();
 		}
@@ -448,6 +455,7 @@ public class PopupDialog extends Window {
 	 * @deprecated As of 3.4, replaced by
 	 *             {@link #PopupDialog(Shell, int, boolean, boolean, boolean, boolean, boolean, String, String)}
 	 */
+	@Deprecated
 	public PopupDialog(Shell parent, int shellStyle, boolean takeFocusOnOpen,
 			boolean persistBounds, boolean showDialogMenu,
 			boolean showPersistActions, String titleText, String infoText) {
@@ -594,6 +602,7 @@ public class PopupDialog extends Window {
 	 * 
 	 * @see org.eclipse.jface.window.Window#configureShell(Shell)
 	 */
+	@Override
 	protected void configureShell(Shell shell) {
 		GridLayoutFactory.fillDefaults().margins(0, 0).spacing(5, 5).applyTo(
 				shell);
@@ -686,6 +695,7 @@ public class PopupDialog extends Window {
 	 * 
 	 * @return the control representing the contents.
 	 */
+	@Override
 	protected Control createContents(Composite parent) {
 		Composite composite = new Composite(parent, SWT.NONE);
 		getPopupLayout().applyTo(composite);
@@ -921,8 +931,7 @@ public class PopupDialog extends Window {
 	 * @return The Control representing the horizontal separator.
 	 */
 	private Control createHorizontalSeparator(Composite parent) {
-		Label separator = new Label(parent, SWT.SEPARATOR | SWT.HORIZONTAL
-				| SWT.LINE_DOT);
+		Label separator = new Label(parent, SWT.SEPARATOR | SWT.HORIZONTAL);
 		GridDataFactory.fillDefaults().align(SWT.FILL, SWT.CENTER).grab(true,
 				false).applyTo(separator);
 		return separator;
@@ -947,12 +956,14 @@ public class PopupDialog extends Window {
 		viewMenuButton.setToolTipText(JFaceResources
 				.getString("PopupDialog.menuTooltip")); //$NON-NLS-1$
 		viewMenuButton.addSelectionListener(new SelectionAdapter() {
+			@Override
 			public void widgetSelected(SelectionEvent e) {
 				showDialogMenu();
 			}
 		});
 		// See https://bugs.eclipse.org/bugs/show_bug.cgi?id=177183
 		toolBar.addMouseListener(new MouseAdapter() {
+			@Override
 			public void mouseDown(MouseEvent e) {
 				showDialogMenu();
 			}
@@ -1082,6 +1093,7 @@ public class PopupDialog extends Window {
 	 *             {@link #getPersistSize()} to determine separately whether
 	 *             size or location should be persisted.
 	 */
+	@Deprecated
 	protected boolean getPersistBounds() {
 		return persistLocation && persistSize;
 	}
@@ -1132,6 +1144,7 @@ public class PopupDialog extends Window {
 	 * 
 	 * @see org.eclipse.jface.window.Window#open()
 	 */
+	@Override
 	public int open() {
 
 		Shell shell = getShell();
@@ -1181,6 +1194,7 @@ public class PopupDialog extends Window {
 	 * @return <code>true</code> if the window is (or was already) closed, and
 	 *         <code>false</code> if it is still open
 	 */
+	@Override
 	public boolean close() {
 		// If already closed, there is nothing to do.
 		// See https://bugs.eclipse.org/bugs/show_bug.cgi?id=127505
@@ -1264,6 +1278,7 @@ public class PopupDialog extends Window {
 	 * 
 	 * @see org.eclipse.jface.window.Window#getInitialSize()
 	 */
+	@Override
 	protected Point getInitialSize() {
 		Point result = getDefaultSize();
 		if (persistSize) {
@@ -1336,6 +1351,7 @@ public class PopupDialog extends Window {
 	 * 
 	 * @see org.eclipse.jface.window.Window#getInitialLocation(org.eclipse.swt.graphics.Point)
 	 */
+	@Override
 	protected Point getInitialLocation(Point initialSize) {
 		Point result = getDefaultLocation(initialSize);
 		if (persistLocation) {
@@ -1476,7 +1492,7 @@ public class PopupDialog extends Window {
 	 *            color assigned
 	 */
 	private void applyForegroundColor(Color color, Control control,
-			List exclusions) {
+			List<Control> exclusions) {
 		if (!exclusions.contains(control)) {
 			control.setForeground(color);
 		}
@@ -1501,7 +1517,7 @@ public class PopupDialog extends Window {
 	 *            color assigned
 	 */
 	private void applyBackgroundColor(Color color, Control control,
-			List exclusions) {
+			List<Control> exclusions) {
 		if (!exclusions.contains(control)) {
 			control.setBackground(color);
 		}
@@ -1555,8 +1571,8 @@ public class PopupDialog extends Window {
 	 * 
 	 * @return the List of controls
 	 */
-	protected List getForegroundColorExclusions() {
-		List list = new ArrayList(3);
+	protected List<Control> getForegroundColorExclusions() {
+		List<Control> list = new ArrayList<Control>(3);
 		if (infoLabel != null) {
 			list.add(infoLabel);
 		}
@@ -1576,8 +1592,8 @@ public class PopupDialog extends Window {
 	 * 
 	 * @return the List of controls
 	 */
-	protected List getBackgroundColorExclusions() {
-		List list = new ArrayList(2);
+	protected List<Control> getBackgroundColorExclusions() {
+		List<Control> list = new ArrayList<Control>(2);
 		if (titleSeparator != null) {
 			list.add(titleSeparator);
 		}

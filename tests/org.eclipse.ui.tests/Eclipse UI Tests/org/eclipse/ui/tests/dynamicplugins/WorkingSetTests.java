@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2007 IBM Corporation and others.
+ * Copyright (c) 2006, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,6 +10,8 @@
  *******************************************************************************/
 
 package org.eclipse.ui.tests.dynamicplugins;
+
+import junit.framework.TestSuite;
 
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
@@ -27,6 +29,15 @@ import org.osgi.framework.Bundle;
  * @since 3.3
  */
 public class WorkingSetTests extends DynamicTestCase {
+
+	public static TestSuite suite() {
+		TestSuite ts = new TestSuite();
+		//ts.addTest(new WorkingSetTests("testClass"));
+		ts.addTest(new WorkingSetTests("testWorkingSetUpdater"));
+		ts.addTest(new WorkingSetTests("testWorkingSetWithBasicElementAdapter"));
+		ts.addTest(new WorkingSetTests("testWorkingSetWithCustomElementAdapter"));
+		return ts;
+	}
 
 	/**
 	 * @param testName

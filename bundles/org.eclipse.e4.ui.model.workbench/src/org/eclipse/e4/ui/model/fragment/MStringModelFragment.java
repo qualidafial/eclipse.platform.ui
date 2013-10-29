@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010 BestSolution.at and others.
+ * Copyright (c) 2010, 2013 BestSolution.at and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,6 +17,16 @@ package org.eclipse.e4.ui.model.fragment;
  * A representation of the model object '<em><b>String Model Fragment</b></em>'.
  * <!-- end-user-doc -->
  *
+ * <!-- begin-model-doc -->
+ * <p>
+ * <strong>Developers</strong>:
+ * Add more detailed documentation by editing this comment in 
+ * /org.eclipse.e4.ui.model.workbench/model/ModelFragment.ecore. 
+ * There is a GenModel/documentation node under each type and attribute.
+ * </p>
+ * @since 1.0
+ * <!-- end-model-doc -->
+ *
  * <p>
  * The following features are supported:
  * <ul>
@@ -33,11 +43,15 @@ public interface MStringModelFragment extends MModelFragment {
 	/**
 	 * Returns the value of the '<em><b>Featurename</b></em>' attribute.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Featurename</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * <strong>Developers</strong>:
+	 * Add more detailed documentation by editing this comment in 
+	 * /org.eclipse.e4.ui.model.workbench/model/ModelFragment.ecore. 
+	 * There is a GenModel/documentation node under each type and attribute.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Featurename</em>' attribute.
 	 * @see #setFeaturename(String)
 	 * @model
@@ -58,11 +72,15 @@ public interface MStringModelFragment extends MModelFragment {
 	/**
 	 * Returns the value of the '<em><b>Parent Element Id</b></em>' attribute.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Parent Element Id</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * <strong>Developers</strong>:
+	 * Add more detailed documentation by editing this comment in 
+	 * /org.eclipse.e4.ui.model.workbench/model/ModelFragment.ecore. 
+	 * There is a GenModel/documentation node under each type and attribute.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Parent Element Id</em>' attribute.
 	 * @see #setParentElementId(String)
 	 * @model
@@ -83,11 +101,15 @@ public interface MStringModelFragment extends MModelFragment {
 	/**
 	 * Returns the value of the '<em><b>Position In List</b></em>' attribute.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Position In List</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * <strong>Developers</strong>:
+	 * Add more detailed documentation by editing this comment in 
+	 * /org.eclipse.e4.ui.model.workbench/model/ModelFragment.ecore. 
+	 * There is a GenModel/documentation node under each type and attribute.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Position In List</em>' attribute.
 	 * @see #setPositionInList(String)
 	 * @model

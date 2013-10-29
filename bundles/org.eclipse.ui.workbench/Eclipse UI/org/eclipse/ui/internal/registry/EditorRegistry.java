@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -773,7 +773,11 @@ public class EditorRegistry extends EventManager implements IEditorRegistry,
                 deletedEditorIDs[j] = idMementos[j]
                         .getString(IWorkbenchConstants.TAG_ID);
             }
-            FileEditorMapping mapping = getMappingFor(name + "." + extension); //$NON-NLS-1$
+			String key = name;
+			if (extension != null && extension.length() > 0) {
+				key = key + "." + extension; //$NON-NLS-1$
+			}
+			FileEditorMapping mapping = getMappingFor(key);
             if (mapping == null) {
                 mapping = new FileEditorMapping(name, extension);
             }

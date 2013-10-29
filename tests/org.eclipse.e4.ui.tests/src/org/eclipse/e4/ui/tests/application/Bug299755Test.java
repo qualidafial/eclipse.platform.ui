@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -67,7 +67,7 @@ public class Bug299755Test extends TestCase {
 		windowContext.set(InjectionObject.class.getName(),
 				new ContextFunction() {
 					@Override
-					public Object compute(IEclipseContext context) {
+					public Object compute(IEclipseContext context, String contextKey) {
 						return ContextInjectionFactory.make(
 								InjectionObject.class, context);
 					}

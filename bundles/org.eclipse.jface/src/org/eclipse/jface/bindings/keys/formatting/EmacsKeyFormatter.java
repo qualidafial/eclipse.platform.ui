@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2005 IBM Corporation and others.
+ * Copyright (c) 2004, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -44,6 +44,7 @@ public final class EmacsKeyFormatter extends AbstractKeyFormatter {
 	 *            The key to format; must not be <code>null</code>.
 	 * @return The key formatted as a string; should not be <code>null</code>.
 	 */
+	@Override
 	public String format(final int key) {
 		final IKeyLookup lookup = KeyLookupFactory.getDefault();
 		if (lookup.isModifierKey(key)) {
@@ -62,6 +63,7 @@ public final class EmacsKeyFormatter extends AbstractKeyFormatter {
 	 * 
 	 * @see org.eclipse.jface.bindings.keys.AbstractKeyFormatter#getKeyDelimiter()
 	 */
+	@Override
 	protected String getKeyDelimiter() {
 		return Util.translateString(RESOURCE_BUNDLE, KEY_DELIMITER_KEY,
 				KeyStroke.KEY_DELIMITER);
@@ -72,6 +74,7 @@ public final class EmacsKeyFormatter extends AbstractKeyFormatter {
 	 * 
 	 * @see org.eclipse.jface.bindings.keys.AbstractKeyFormatter#getKeyStrokeDelimiter()
 	 */
+	@Override
 	protected String getKeyStrokeDelimiter() {
 		return Util.translateString(RESOURCE_BUNDLE, KEY_STROKE_DELIMITER_KEY,
 				KeySequence.KEY_STROKE_DELIMITER);
@@ -82,6 +85,7 @@ public final class EmacsKeyFormatter extends AbstractKeyFormatter {
 	 * 
 	 * @see org.eclipse.jface.bindings.keys.AbstractKeyFormatter#sortModifierKeys(int)
 	 */
+	@Override
 	protected int[] sortModifierKeys(int modifierKeys) {
 		final IKeyLookup lookup = KeyLookupFactory.getDefault();
 		final int[] sortedKeys = new int[4];

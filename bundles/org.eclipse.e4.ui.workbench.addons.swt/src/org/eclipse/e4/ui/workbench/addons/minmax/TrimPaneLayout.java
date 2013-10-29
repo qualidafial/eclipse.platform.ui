@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,7 @@
 
 package org.eclipse.e4.ui.workbench.addons.minmax;
 
+import org.eclipse.e4.ui.model.application.ui.menu.MToolControl;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseListener;
@@ -42,8 +43,10 @@ public class TrimPaneLayout extends Layout {
 
 	int trackState = SWT.NONE;
 	protected Point curPos;
+	private MToolControl toolControl;
 
-	public TrimPaneLayout(int barSide) {
+	public TrimPaneLayout(MToolControl toolControl, int barSide) {
+		this.toolControl = toolControl;
 		this.fixedCorner = barSide;
 	}
 
@@ -94,6 +97,24 @@ public class TrimPaneLayout extends Layout {
 				clientRect = new Rectangle(0, 0, bounds.width - BORDER_WIDTH, bounds.height
 						- BORDER_WIDTH);
 			}
+		} else if (isFixed(SWT.BOTTOM)) {
+			if (isFixed(SWT.RIGHT)) {
+				hSizingRect = new Rectangle(0, BORDER_WIDTH, BORDER_WIDTH, bounds.height
+						- BORDER_WIDTH);
+				vSizingRect = new Rectangle(BORDER_WIDTH, 0, bounds.width - BORDER_WIDTH,
+						BORDER_WIDTH);
+				cornerRect = new Rectangle(0, 0, BORDER_WIDTH, BORDER_WIDTH);
+				clientRect = new Rectangle(BORDER_WIDTH, BORDER_WIDTH, bounds.width - BORDER_WIDTH,
+						bounds.height - BORDER_WIDTH);
+			} else {
+				hSizingRect = new Rectangle(bounds.width - BORDER_WIDTH, BORDER_WIDTH,
+						BORDER_WIDTH, bounds.height - BORDER_WIDTH);
+				vSizingRect = new Rectangle(0, 0, bounds.width - BORDER_WIDTH, BORDER_WIDTH);
+				cornerRect = new Rectangle(bounds.width - BORDER_WIDTH, 0, BORDER_WIDTH,
+						BORDER_WIDTH);
+				clientRect = new Rectangle(0, BORDER_WIDTH, bounds.width - BORDER_WIDTH,
+						bounds.height - BORDER_WIDTH);
+			}
 		}
 		Control child = composite.getChildren()[0];
 		child.setBounds(clientRect);
@@ -122,6 +143,14 @@ public class TrimPaneLayout extends Layout {
 
 			public void mouseUp(MouseEvent e) {
 				composite.setCapture(false);
+
+				// Persist the current size
+				Point size = composite.getSize();
+				toolControl.getPersistedState()
+						.put(TrimStack.STATE_XSIZE, Integer.toString(size.x));
+				toolControl.getPersistedState()
+						.put(TrimStack.STATE_YSIZE, Integer.toString(size.y));
+
 				trackState = NOT_SIZING;
 			}
 
@@ -171,10 +200,17 @@ public class TrimPaneLayout extends Layout {
 		} else if (vSizingRect.contains(p)) {
 			composite.setCursor(composite.getDisplay().getSystemCursor(SWT.CURSOR_SIZENS));
 		} else if (cornerRect.contains(p)) {
-			if (isFixed(SWT.RIGHT))
-				composite.setCursor(composite.getDisplay().getSystemCursor(SWT.CURSOR_SIZESW));
-			else
-				composite.setCursor(composite.getDisplay().getSystemCursor(SWT.CURSOR_SIZESE));
+			if (isFixed(SWT.TOP)) {
+				if (isFixed(SWT.RIGHT))
+					composite.setCursor(composite.getDisplay().getSystemCursor(SWT.CURSOR_SIZESW));
+				else
+					composite.setCursor(composite.getDisplay().getSystemCursor(SWT.CURSOR_SIZESE));
+			} else if (isFixed(SWT.BOTTOM)) {
+				if (isFixed(SWT.RIGHT))
+					composite.setCursor(composite.getDisplay().getSystemCursor(SWT.CURSOR_SIZESE));
+				else
+					composite.setCursor(composite.getDisplay().getSystemCursor(SWT.CURSOR_SIZESW));
+			}
 		} else {
 			composite.setCursor(null);
 		}

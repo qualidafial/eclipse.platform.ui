@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2011 IBM Corporation and others.
+ * Copyright (c) 2009, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,6 +17,8 @@ import java.util.Iterator;
 import java.util.List;
 import javax.inject.Inject;
 import org.eclipse.core.commands.Command;
+import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.core.commands.IHandler;
 import org.eclipse.core.commands.ParameterizedCommand;
 import org.eclipse.core.commands.common.CommandException;
 import org.eclipse.e4.core.commands.EHandlerService;
@@ -34,6 +36,7 @@ import org.eclipse.jface.bindings.keys.ParseException;
 import org.eclipse.jface.bindings.keys.SWTKeySupport;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.browser.Browser;
+import org.eclipse.swt.custom.CCombo;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Display;
@@ -265,35 +268,34 @@ public class KeyBindingDispatcher {
 		staticContext.set(Event.class, trigger);
 
 		final boolean commandDefined = command.isDefined();
-		boolean commandEnabled;
-		boolean commandHandled;
+		// boolean commandEnabled;
+		boolean commandHandled = false;
 
 		try {
-			commandEnabled = handlerService.canExecute(parameterizedCommand, staticContext);
-			commandHandled = HandlerServiceImpl.lookUpHandler(context, command.getId()) != null;
-
-			if (!commandEnabled && commandHandled && commandDefined) {
-				if (keyAssistDialog != null) {
-					keyAssistDialog.clearRememberedState();
+			// commandEnabled = handlerService.canExecute(parameterizedCommand, staticContext);
+			Object obj = HandlerServiceImpl.lookUpHandler(context, command.getId());
+			if (obj != null) {
+				if (obj instanceof IHandler) {
+					commandHandled = ((IHandler) obj).isHandled();
+				} else {
+					commandHandled = true;
 				}
-				return true;
 			}
-			if (commandEnabled) {
-				try {
-					handlerService.executeHandler(parameterizedCommand, staticContext);
-				} catch (final Exception e) {
-					commandHandled = false;
-					if (logger != null) {
-						logger.error(e);
-					}
+
+			handlerService.executeHandler(parameterizedCommand, staticContext);
+			final Object commandException = staticContext.get(HandlerServiceImpl.HANDLER_EXCEPTION);
+			if (commandException instanceof CommandException) {
+				commandHandled = false;
+				if (logger != null && commandException instanceof ExecutionException) {
+					logger.error((Throwable) commandException);
 				}
-				/*
-				 * Now that the command has executed (and had the opportunity to use the remembered
-				 * state of the dialog), it is safe to delete that information.
-				 */
-				if (keyAssistDialog != null) {
-					keyAssistDialog.clearRememberedState();
-				}
+			}
+			/*
+			 * Now that the command has executed (and had the opportunity to use the remembered
+			 * state of the dialog), it is safe to delete that information.
+			 */
+			if (keyAssistDialog != null) {
+				keyAssistDialog.clearRememberedState();
 			}
 		} finally {
 			staticContext.dispose();
@@ -332,7 +334,8 @@ public class KeyBindingDispatcher {
 			Widget widget = event.widget;
 			if ((event.character == SWT.DEL)
 					&& ((event.stateMask & SWT.MODIFIER_MASK) == 0)
-					&& ((widget instanceof Text) || (widget instanceof Combo) || (widget instanceof Browser))) {
+					&& ((widget instanceof Text) || (widget instanceof Combo)
+							|| (widget instanceof Browser) || (widget instanceof CCombo))) {
 				/*
 				 * KLUDGE. Bug 54654. The text widget relies on no listener doing any work before
 				 * dispatching the native delete event. This does not work, as we are restricted to
@@ -447,19 +450,9 @@ public class KeyBindingDispatcher {
 	 * binding. This method lazily creates a <code>keyAssistDialog</code> and shares it between
 	 * executions.
 	 */
-	public final void openMultiKeyAssistShell() {
+	private final void openKeyAssistShell(final Collection<Binding> bindings) {
 		if (keyAssistDialog == null) {
-			keyAssistDialog = new KeyAssistDialog(context, this, state);
-		}
-		if (keyAssistDialog.getShell() == null) {
-			keyAssistDialog.setParentShell(getDisplay().getActiveShell());
-		}
-		keyAssistDialog.open();
-	}
-
-	public final void openKeyAssistShell(final Collection<Binding> bindings) {
-		if (keyAssistDialog == null) {
-			keyAssistDialog = new KeyAssistDialog(context, this, state);
+			keyAssistDialog = new KeyAssistDialog(context, this);
 		}
 		if (keyAssistDialog.getShell() == null) {
 			keyAssistDialog.setParentShell(getDisplay().getActiveShell());

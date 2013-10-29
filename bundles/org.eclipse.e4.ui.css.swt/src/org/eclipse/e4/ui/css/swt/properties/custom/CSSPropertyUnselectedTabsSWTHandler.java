@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others. All rights reserved. This
+ * Copyright (c) 2010, 2012 IBM Corporation and others. All rights reserved. This
  * program and the accompanying materials are made available under the terms of
  * the Eclipse Public License v1.0 which accompanies this distribution, and is
  * available at http://www.eclipse.org/legal/epl-v10.html
@@ -14,8 +14,8 @@ import org.eclipse.e4.ui.css.core.dom.properties.ICSSPropertyHandler;
 import org.eclipse.e4.ui.css.core.engine.CSSEngine;
 import org.eclipse.e4.ui.css.swt.helpers.CSSSWTColorHelper;
 import org.eclipse.e4.ui.css.swt.properties.AbstractCSSPropertySWTHandler;
-import org.eclipse.e4.ui.widgets.CTabFolder;
-import org.eclipse.e4.ui.widgets.CTabFolderRenderer;
+import org.eclipse.swt.custom.CTabFolder;
+import org.eclipse.swt.custom.CTabFolderRenderer;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Control;
 import org.w3c.dom.css.CSSValue;
@@ -38,13 +38,15 @@ public class CSSPropertyUnselectedTabsSWTHandler extends AbstractCSSPropertySWTH
 			
 			CTabFolderRenderer renderer = ((CTabFolder) control).getRenderer();
 			if (renderer == null) return;
-			if (pseudo != null && pseudo.equals("selected")) {
-				Method m = renderer.getClass().getMethod("setActiveToolbarGradient",  new Class[]{Color[].class, int[].class});
-				m.invoke(renderer, colors, percents);
-			} else {
-				Method m = renderer.getClass().getMethod("setInactiveToolbarGradient",  new Class[]{Color[].class, int[].class});
-				m.invoke(renderer, colors, percents);
-			}
+			try {
+				if (pseudo != null && pseudo.equals("selected")) {
+					Method m = renderer.getClass().getMethod("setActiveToolbarGradient",  new Class[]{Color[].class, int[].class});
+					m.invoke(renderer, colors, percents);
+				} else {
+					Method m = renderer.getClass().getMethod("setInactiveToolbarGradient",  new Class[]{Color[].class, int[].class});
+					m.invoke(renderer, colors, percents);
+				}
+			} catch(NoSuchMethodException e) {/*IGNORED*/}
 		}
 	}
 	

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2010 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -27,6 +27,7 @@ import org.eclipse.ui.IKeyBindingService;
 import org.eclipse.ui.INestableKeyBindingService;
 import org.eclipse.ui.IWorkbenchPartSite;
 import org.eclipse.ui.IWorkbenchSite;
+import org.eclipse.ui.LegacyHandlerSubmissionExpression;
 import org.eclipse.ui.handlers.IHandlerActivation;
 import org.eclipse.ui.handlers.IHandlerService;
 import org.eclipse.ui.internal.actions.CommandAction;
@@ -325,6 +326,15 @@ public final class KeyBindingService implements INestableKeyBindingService {
 
         unregisterAction(action);
 
+		IWorkbenchPartSite partSite = workbenchPartSite;
+		if (parent != null) {
+			KeyBindingService currentParent = parent;
+			while (currentParent != null) {
+				partSite = currentParent.workbenchPartSite;
+				currentParent = currentParent.parent;
+			}
+		}
+
 		String commandId = action.getActionDefinitionId();
 		if (commandId != null) {
 			for (IAction registeredAction : actionToProxy.keySet()) {
@@ -338,7 +348,8 @@ public final class KeyBindingService implements INestableKeyBindingService {
 
 			IHandlerService hs = (IHandlerService) workbenchPartSite
 					.getService(IHandlerService.class);
-			actionToProxy.put(action, hs.activateHandler(commandId, new ActionHandler(action)));
+			actionToProxy.put(action, hs.activateHandler(commandId, new ActionHandler(action),
+					new LegacyHandlerSubmissionExpression(null, partSite.getShell(), partSite)));
 
 		}
     }

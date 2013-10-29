@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2009, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -118,8 +118,8 @@ public class UIEventsTest extends HeadlessApplicationElementTest {
 	public class AppElementTester extends EventTester {
 		AppElementTester(IEventBroker eventBroker) {
 			super("AppElement", ApplicationElement.TOPIC_ALL, new String[] {
-					ApplicationElement.ELEMENTID, ApplicationElement.TAGS },
-					eventBroker);
+					ApplicationElement.ELEMENTID, ApplicationElement.TAGS,
+					ApplicationElement.PERSISTEDSTATE }, eventBroker);
 		}
 	}
 
@@ -140,8 +140,8 @@ public class UIEventsTest extends HeadlessApplicationElementTest {
 	public class ContributionTester extends EventTester {
 		ContributionTester(IEventBroker eventBroker) {
 			super("Contribution", Contribution.TOPIC_ALL, new String[] {
-					Contribution.CONTRIBUTIONURI, Contribution.PERSISTEDSTATE,
-					Contribution.OBJECT }, eventBroker);
+					Contribution.CONTRIBUTIONURI, Contribution.OBJECT },
+					eventBroker);
 		}
 	}
 
@@ -234,8 +234,9 @@ public class UIEventsTest extends HeadlessApplicationElementTest {
 
 		// Create the test harness and hook up the event publisher
 		MTestHarness allData = MTestFactory.eINSTANCE.createTestHarness();
-		((Notifier) allData).eAdapters().add(
-				new UIEventPublisher(applicationContext));
+		final UIEventPublisher ep = new UIEventPublisher(applicationContext);
+		((Notifier) allData).eAdapters().add(ep);
+		applicationContext.set(UIEventPublisher.class, ep);
 
 		// AppElement
 		reset(allTesters);
@@ -243,6 +244,7 @@ public class UIEventsTest extends HeadlessApplicationElementTest {
 		allData.setElementId(newId);
 		allData.getTags().add("Testing");
 		// allData.setTags("new Style");
+		allData.getPersistedState().put("testing", "Some state");
 		checkForFailures(allTesters, appTester);
 
 		// Test that no-ops don't throw events
@@ -268,7 +270,6 @@ public class UIEventsTest extends HeadlessApplicationElementTest {
 		reset(allTesters);
 		allData.setContributionURI("Some URI");
 		allData.setObject("Some onbject");
-		allData.getPersistedState().put("testing", "Some state");
 		checkForFailures(allTesters, contributionTester);
 
 		// ElementContainer
@@ -325,6 +326,33 @@ public class UIEventsTest extends HeadlessApplicationElementTest {
 		MMenu newMainMenu = MMenuFactory.INSTANCE.createMenu();
 		window.setMainMenu(newMainMenu);
 		checkForFailures(allTesters, windowTester);
+	}
+
+	// Verify bug 374534
+	public void testBrokerCleanup() {
+		final String testTopic = "test/374534";
+		IEventBroker appEB = applicationContext.get(IEventBroker.class);
+
+		IEclipseContext childContext = applicationContext.createChild();
+		IEventBroker childEB = childContext.get(IEventBroker.class);
+		assertFalse("child context has same IEventBroker", appEB == childEB);
+
+		final boolean seen[] = { false };
+		childEB.subscribe(testTopic, new EventHandler() {
+			public void handleEvent(Event event) {
+				seen[0] = true;
+			}
+		});
+
+		// ensure the EBs are wired up
+		assertFalse(seen[0]);
+		appEB.send(testTopic, null);
+		assertTrue(seen[0]);
+
+		seen[0] = false;
+		childContext.dispose();
+		appEB.send(testTopic, null);
+		assertFalse(seen[0]);
 	}
 
 	/**

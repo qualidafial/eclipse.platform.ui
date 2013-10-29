@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2010 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,13 +7,24 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Tristan Hume - <trishume@gmail.com> -
+ *     		Fix for Bug 2369 [Workbench] Would like to be able to save workspace without exiting
+ *     		Implemented workbench auto-save to correctly restore state in case of crash.
  *******************************************************************************/
 package org.eclipse.ui.internal.dialogs;
 
+
 import org.eclipse.jface.dialogs.IDialogConstants;
+import org.eclipse.jface.layout.LayoutConstants;
+import org.eclipse.jface.preference.FieldEditor;
 import org.eclipse.jface.preference.IPreferenceStore;
+import org.eclipse.jface.preference.IntegerFieldEditor;
 import org.eclipse.jface.preference.PreferencePage;
+import org.eclipse.jface.preference.StringFieldEditor;
+import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.jface.util.OpenStrategy;
+import org.eclipse.jface.util.PropertyChangeEvent;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
@@ -55,6 +66,8 @@ public class WorkbenchPreferencePage extends PreferencePage implements
 
     private Button showUserDialogButton;
 
+	private IntegerFieldEditor saveInterval;
+
     private boolean openOnSingleClick;
 
     private boolean selectOnHover;
@@ -62,6 +75,8 @@ public class WorkbenchPreferencePage extends PreferencePage implements
     private boolean openAfterDelay;
 
 	private Button showHeapStatusButton;
+
+	protected static int MAX_SAVE_INTERVAL = 9999;
 
     /*
      * (non-Javadoc)
@@ -77,7 +92,7 @@ public class WorkbenchPreferencePage extends PreferencePage implements
 
         Composite composite = createComposite(parent);
 
-        createButtons(composite);
+		createSettings(composite);
 
         createSpace(composite);
         createOpenModeGroup(composite);
@@ -91,10 +106,11 @@ public class WorkbenchPreferencePage extends PreferencePage implements
      * Create the buttons at the top of the preference page.
      * @param composite
      */
-	protected void createButtons(Composite composite) {
+	protected void createSettings(Composite composite) {
 		createShowUserDialogPref(composite);
         createStickyCyclePref(composite);
         createHeapStatusPref(composite);
+		createSaveIntervalGroup(composite);
 	}
 
     /**
@@ -151,6 +167,51 @@ public class WorkbenchPreferencePage extends PreferencePage implements
                 IPreferenceConstants.STICKY_CYCLE));
     }
 
+	/**
+	 * Create a composite that contains entry fields specifying save interval
+	 * preference.
+	 * 
+	 * @param composite
+	 *            the Composite the group is created in.
+	 */
+	private void createSaveIntervalGroup(Composite composite) {
+		Composite groupComposite = new Composite(composite, SWT.LEFT);
+		GridLayout layout = new GridLayout();
+		layout.numColumns = 2;
+		groupComposite.setLayout(layout);
+		GridData gd = new GridData();
+		gd.horizontalAlignment = GridData.FILL;
+		gd.grabExcessHorizontalSpace = true;
+		groupComposite.setLayoutData(gd);
+
+		saveInterval = new IntegerFieldEditor(IPreferenceConstants.WORKBENCH_SAVE_INTERVAL,
+				WorkbenchMessages.WorkbenchPreference_workbenchSaveInterval, groupComposite);
+
+		// @issue we should drop our preference constant and let clients use
+		// core's pref. ours is not up-to-date anyway if someone changes this
+		// interval directly thru core api.
+		saveInterval.setPreferenceStore(getPreferenceStore());
+		saveInterval.setPage(this);
+		saveInterval.setTextLimit(Integer.toString(MAX_SAVE_INTERVAL).length());
+		saveInterval.setErrorMessage(NLS.bind(
+				WorkbenchMessages.WorkbenchPreference_workbenchSaveIntervalError, new Integer(
+						MAX_SAVE_INTERVAL)));
+		saveInterval.setValidateStrategy(StringFieldEditor.VALIDATE_ON_KEY_STROKE);
+		saveInterval.setValidRange(0, MAX_SAVE_INTERVAL);
+
+		saveInterval.load();
+
+		saveInterval.setPropertyChangeListener(new IPropertyChangeListener() {
+
+			public void propertyChange(PropertyChangeEvent event) {
+				if (event.getProperty().equals(FieldEditor.IS_VALID)) {
+					setValid(saveInterval.isValid());
+				}
+			}
+		});
+
+	}
+
     protected void createOpenModeGroup(Composite composite) {
 
         Font font = composite.getFont();
@@ -195,7 +256,7 @@ public class WorkbenchPreferencePage extends PreferencePage implements
             }
         });
         data = new GridData();
-        data.horizontalIndent = 20;
+		data.horizontalIndent = LayoutConstants.getIndent();
         selectOnHoverButton.setLayoutData(data);
 
         label = WorkbenchMessages.WorkbenchPreference_singleClick_OpenAfterDelay;		
@@ -210,7 +271,7 @@ public class WorkbenchPreferencePage extends PreferencePage implements
             }
         });
         data = new GridData();
-        data.horizontalIndent = 20;
+		data.horizontalIndent = LayoutConstants.getIndent();
         openAfterDelayButton.setLayoutData(data);
 
         createNoteComposite(font, buttonComposite, WorkbenchMessages.Preference_note, 
@@ -317,6 +378,7 @@ public class WorkbenchPreferencePage extends PreferencePage implements
      */
     protected void performDefaults() {
         IPreferenceStore store = getPreferenceStore();
+		saveInterval.loadDefault();
         stickyCycleButton.setSelection(store
                 .getBoolean(IPreferenceConstants.STICKY_CYCLE));
         openOnSingleClick = store
@@ -356,6 +418,7 @@ public class WorkbenchPreferencePage extends PreferencePage implements
         store.setValue(IPreferenceConstants.OPEN_AFTER_DELAY, openAfterDelay);
         store.setValue(IPreferenceConstants.RUN_IN_BACKGROUND,
                 showUserDialogButton.getSelection());
+		store.setValue(IPreferenceConstants.WORKBENCH_SAVE_INTERVAL, saveInterval.getIntValue());
         PrefUtil.getAPIPreferenceStore().setValue(IWorkbenchPreferenceConstants.SHOW_MEMORY_MONITOR, showHeapStatusButton.getSelection());
         updateHeapStatus(showHeapStatusButton.getSelection());
         

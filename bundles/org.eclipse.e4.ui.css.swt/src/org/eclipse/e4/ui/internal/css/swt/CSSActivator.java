@@ -1,5 +1,5 @@
 /*******************************************************************************
- *  Copyright (c) 2010 IBM Corporation and others.
+ *  Copyright (c) 2010, 2013 IBM Corporation and others.
  *  All rights reserved. This program and the accompanying materials
  *  are made available under the terms of the Eclipse Public License v1.0
  *  which accompanies this distribution, and is available at
@@ -10,9 +10,12 @@
  *******************************************************************************/
 package org.eclipse.e4.ui.internal.css.swt;
 
+import org.eclipse.e4.ui.internal.css.swt.definition.IColorAndFontProvider;
+
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
+import org.osgi.service.log.LogService;
 import org.osgi.service.packageadmin.PackageAdmin;
 import org.osgi.util.tracker.ServiceTracker;
 
@@ -22,6 +25,8 @@ public class CSSActivator implements BundleActivator {
 
 	private BundleContext context;
 	private ServiceTracker pkgAdminTracker;
+	private ServiceTracker logTracker;
+	private ServiceTracker colorAndFontProviderTracker;
 
 	public static CSSActivator getDefault() {
 		return activator;
@@ -73,9 +78,45 @@ public class CSSActivator implements BundleActivator {
 			pkgAdminTracker.close();
 			pkgAdminTracker = null;
 		}
+		if (logTracker != null) {
+			logTracker.close();
+			logTracker = null;
+		}
+		if (colorAndFontProviderTracker != null) {
+			colorAndFontProviderTracker.close();
+			colorAndFontProviderTracker = null;
+		}
 		context = null;
 	}
+
+	private LogService getLogger() {
+		if (logTracker == null) {
+			if (context == null)
+				return null;
+			logTracker = new ServiceTracker(context,
+					LogService.class.getName(), null);
+			logTracker.open();
+		}
+		return (LogService) logTracker.getService();
+	}
+
+	public void log(int logError, String message) {
+		LogService logger = getLogger();
+		if (logger != null) {
+			logger.log(logError, message);
+		}
+	}	
 	
-	
+	public IColorAndFontProvider getColorAndFontProvider() {
+		if (colorAndFontProviderTracker == null) {
+			if (context == null) {
+				return null;
+			}
+			colorAndFontProviderTracker = new ServiceTracker(context,
+					IColorAndFontProvider.class.getName(), null);
+			colorAndFontProviderTracker.open();
+		}
+		return (IColorAndFontProvider) colorAndFontProviderTracker.getService();
+	}
 
 }

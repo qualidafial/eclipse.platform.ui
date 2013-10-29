@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2011 IBM Corporation and others.
+ * Copyright (c) 2007, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -8,6 +8,7 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Michael Krkoska - initial API and implementation (bug 188333)
+ *     Pawel Piech - Bug 291245 - [Viewers] StyledCellLabelProvider.paint(...) does not respect column alignment
  *******************************************************************************/
 package org.eclipse.jface.viewers;
 
@@ -42,8 +43,6 @@ import org.eclipse.swt.widgets.Event;
  * @since 3.4
  */
 public abstract class StyledCellLabelProvider extends OwnerDrawLabelProvider {
-
-
 
 	/**
 	 * Style constant for indicating that the styled colors are to be applied
@@ -157,6 +156,7 @@ public abstract class StyledCellLabelProvider extends OwnerDrawLabelProvider {
 	/* (non-Javadoc)
 	 * @see org.eclipse.jface.viewers.OwnerDrawLabelProvider#initialize(org.eclipse.jface.viewers.ColumnViewer, org.eclipse.jface.viewers.ViewerColumn)
 	 */
+	@Override
 	public void initialize(ColumnViewer viewer, ViewerColumn column) {
 		Assert.isTrue(this.viewer == null && this.column == null, "Label provider instance already in use"); //$NON-NLS-1$
 		
@@ -170,6 +170,7 @@ public abstract class StyledCellLabelProvider extends OwnerDrawLabelProvider {
 	 * 
 	 * @see org.eclipse.jface.viewers.BaseLabelProvider#dispose()
 	 */
+	@Override
 	public void dispose() {
 		if (this.cachedTextLayout != null) {
 			cachedTextLayout.dispose();
@@ -187,6 +188,7 @@ public abstract class StyledCellLabelProvider extends OwnerDrawLabelProvider {
 	 * 
 	 * @see org.eclipse.jface.viewers.OwnerDrawLabelProvider#update(org.eclipse.jface.viewers.ViewerCell)
 	 */
+	@Override
 	public void update(ViewerCell cell) {
 		// clients must override and configure the cell and call super
 		super.update(cell); // calls 'repaint' to trigger the paint listener
@@ -252,6 +254,7 @@ public abstract class StyledCellLabelProvider extends OwnerDrawLabelProvider {
 	 *            the model object
 	 * @see SWT#EraseItem
 	 */
+	@Override
 	protected void erase(Event event, Object element) {
 		// use native erase
 		if (isOwnerDrawEnabled()) {
@@ -266,6 +269,7 @@ public abstract class StyledCellLabelProvider extends OwnerDrawLabelProvider {
 	 * @see org.eclipse.jface.viewers.OwnerDrawLabelProvider#measure(org.eclipse.swt.widgets.Event,
 	 *      java.lang.Object)
 	 */
+	@Override
 	protected void measure(Event event, Object element) {
 		if (!isOwnerDrawEnabled())
 			return;
@@ -319,6 +323,7 @@ public abstract class StyledCellLabelProvider extends OwnerDrawLabelProvider {
 	 * @see org.eclipse.jface.viewers.OwnerDrawLabelProvider#paint(org.eclipse.swt.widgets.Event,
 	 *      java.lang.Object)
 	 */
+	@Override
 	protected void paint(Event event, Object element) {
 		if (!isOwnerDrawEnabled())
 			return;
@@ -365,11 +370,20 @@ public abstract class StyledCellLabelProvider extends OwnerDrawLabelProvider {
 			
 			Rectangle layoutBounds = textLayout.getBounds();
 	
+			int style = viewer.getColumnViewerOwner(cell.getColumnIndex()).getStyle();
 			int x = textBounds.x;
+			if ((style & SWT.RIGHT) != 0) {
+				x = textBounds.x + textBounds.width - textLayout.getBounds().width;
+			} else if ((style & SWT.CENTER) != 0) {
+				x = textBounds.x + (textBounds.width - textLayout.getBounds().width)/2;
+			}
 			int y = textBounds.y
 					+ Math.max(0, (textBounds.height - layoutBounds.height) / 2);
 	
+			Rectangle saveClipping = gc.getClipping();
+			gc.setClipping(textBounds);
 			textLayout.draw(gc, x, y);
+			gc.setClipping(saveClipping);
 		}
 
 		if (drawFocus(event)) {

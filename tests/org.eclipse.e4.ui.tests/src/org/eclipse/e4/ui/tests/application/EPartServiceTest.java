@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2011 IBM Corporation and others.
+ * Copyright (c) 2009, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -19,7 +19,7 @@ import java.util.List;
 import org.eclipse.core.runtime.AssertionFailedException;
 import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.ui.di.Focus;
-import org.eclipse.e4.ui.internal.workbench.E4Workbench;
+import org.eclipse.e4.ui.internal.workbench.PartServiceSaveHandler;
 import org.eclipse.e4.ui.internal.workbench.UIEventPublisher;
 import org.eclipse.e4.ui.model.application.descriptor.basic.MPartDescriptor;
 import org.eclipse.e4.ui.model.application.ui.MElementContainer;
@@ -36,6 +36,7 @@ import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
 import org.eclipse.e4.ui.model.application.ui.basic.MWindowElement;
 import org.eclipse.e4.ui.model.application.ui.basic.impl.BasicFactoryImpl;
 import org.eclipse.e4.ui.services.IServiceConstants;
+import org.eclipse.e4.ui.tests.workbench.TargetedView;
 import org.eclipse.e4.ui.workbench.modeling.EModelService;
 import org.eclipse.e4.ui.workbench.modeling.EPartService;
 import org.eclipse.e4.ui.workbench.modeling.EPartService.PartState;
@@ -1386,6 +1387,29 @@ public class EPartServiceTest extends UITest {
 		assertEquals(windowA, application.getSelectedElement());
 		assertEquals(partB, windowA.getContext().get(EPartService.class)
 				.getActivePart());
+	}
+
+	public void testActivate_Bug371894() {
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+		application.getChildren().add(window);
+		application.setSelectedElement(window);
+
+		MPart partA = BasicFactoryImpl.eINSTANCE.createPart();
+		window.getSharedElements().add(partA);
+
+		MPart partB = BasicFactoryImpl.eINSTANCE.createPart();
+		window.getChildren().add(partB);
+		window.setSelectedElement(partB);
+
+		initialize();
+		getEngine().createGui(window);
+
+		IEclipseContext context = window.getContext();
+		context.get(EModelService.class).hostElement(partA, window,
+				window.getWidget(), context);
+
+		EPartService partService = window.getContext().get(EPartService.class);
+		partService.activate(partA);
 	}
 
 	public void testCreatePart() {
@@ -3762,7 +3786,7 @@ public class EPartServiceTest extends UITest {
 		editor.setThrowException(throwException);
 
 		window.getContext().set(ISaveHandler.class.getName(),
-				new ISaveHandler() {
+				new PartServiceSaveHandler() {
 					public Save[] promptToSave(Collection<MPart> saveablePart) {
 						return null;
 					}
@@ -4087,7 +4111,7 @@ public class EPartServiceTest extends UITest {
 		editor2.setThrowException(throwException[1]);
 
 		window.getContext().set(ISaveHandler.class.getName(),
-				new ISaveHandler() {
+				new PartServiceSaveHandler() {
 					public Save[] promptToSave(Collection<MPart> saveableParts) {
 						int index = 0;
 						Save[] prompt = new Save[saveableParts.size()];
@@ -5950,6 +5974,52 @@ public class EPartServiceTest extends UITest {
 		testShowPart_Bug328078(PartState.ACTIVATE);
 	}
 
+	public void testShowPart_Bug370026_CREATE() {
+		testShowPart_Bug370026(PartState.CREATE);
+	}
+
+	public void testShowPart_Bug370026_VISIBLE() {
+		testShowPart_Bug370026(PartState.VISIBLE);
+	}
+
+	public void testShowPart_Bug370026_ACTIVATE() {
+		testShowPart_Bug370026(PartState.ACTIVATE);
+	}
+
+	private void testShowPart_Bug370026(PartState partState) {
+		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
+		application.getChildren().add(window);
+		application.setSelectedElement(window);
+
+		MPart partA = BasicFactoryImpl.eINSTANCE.createPart();
+		partA.setContributionURI("bundleclass://org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.SimpleView");
+		window.getChildren().add(partA);
+
+		MPart partB = BasicFactoryImpl.eINSTANCE.createPart();
+		partB.setContributionURI("bundleclass://org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.TargetedView");
+		window.getChildren().add(partB);
+
+		MPartStack partStack = BasicFactoryImpl.eINSTANCE.createPartStack();
+		window.getChildren().add(partStack);
+
+		MPart partC = BasicFactoryImpl.eINSTANCE.createPart();
+		partC.setContributionURI("bundleclass://org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.workbench.SimpleView");
+		partStack.getChildren().add(partC);
+		partStack.setSelectedElement(partC);
+
+		// setup the context
+		initialize();
+
+		applicationContext.set(PartState.class, partState);
+		applicationContext.set(TargetedView.TARGET_MARKER, partC);
+
+		// render the window
+		getEngine().createGui(window);
+
+		TargetedView view = (TargetedView) partB.getObject();
+		assertTrue(view.passed);
+	}
+
 	private void testHidePart_Bug325148(boolean force) {
 		MWindow window = BasicFactoryImpl.eINSTANCE.createWindow();
 		application.getChildren().add(window);
@@ -7370,11 +7440,13 @@ public class EPartServiceTest extends UITest {
 
 		EPartService partService = window.getContext().get(EPartService.class);
 		partService.activate(partB);
+		assertEquals("partB should be the active part", partB,
+				partService.getActivePart());
 
 		partService.switchPerspective(perspectiveB);
-		assertEquals(
-				"partB is in both perspectives, but since partB is obscured by partA, partA should be the active part",
-				partA, partService.getActivePart());
+		// assertEquals(
+		// "partB is in both perspectives, but since partB is obscured by partA, partA should be the active part",
+		// partA, partService.getActivePart());
 
 		partService.hidePart(partB);
 		assertEquals("partA should still be the active part", partA,
@@ -9572,13 +9644,13 @@ public class EPartServiceTest extends UITest {
 		EPartService windowPartServiceB = windowB.getContext().get(
 				EPartService.class);
 
-		assertEquals(windowA.getContext(), application.getContext()
+		assertEquals(windowB.getContext(), application.getContext()
 				.getActiveChild());
 		assertEquals(perspectiveB1.getContext(), windowB.getContext()
 				.getActiveChild());
 
 		windowPartServiceB.switchPerspective(perspectiveB2);
-		assertEquals(windowA.getContext(), application.getContext()
+		assertEquals(windowB.getContext(), application.getContext()
 				.getActiveChild());
 		assertEquals(perspectiveB2.getContext(), windowB.getContext()
 				.getActiveChild());
@@ -9640,7 +9712,7 @@ public class EPartServiceTest extends UITest {
 		getEngine().createGui(window1);
 		getEngine().createGui(window2);
 
-		assertEquals(window1.getContext(), application.getContext()
+		assertEquals(window2.getContext(), application.getContext()
 				.getActiveChild());
 		assertEquals(perspectiveA.getContext(), window2.getContext()
 				.getActiveChild());
@@ -9648,7 +9720,7 @@ public class EPartServiceTest extends UITest {
 		EPartService partService = window2.getContext().get(EPartService.class);
 		partService.switchPerspective(perspectiveB);
 
-		assertEquals(window1.getContext(), application.getContext()
+		assertEquals(window2.getContext(), application.getContext()
 				.getActiveChild());
 		assertEquals(perspectiveB.getContext(), window2.getContext()
 				.getActiveChild());
@@ -9726,8 +9798,6 @@ public class EPartServiceTest extends UITest {
 
 		partService.switchPerspective(perspectiveA);
 
-		assertEquals(window1.getContext(), application.getContext()
-				.getActiveChild());
 		assertEquals(perspectiveA.getContext(), window2.getContext()
 				.getActiveChild());
 	}
@@ -10085,12 +10155,12 @@ public class EPartServiceTest extends UITest {
 	}
 
 	private void initialize() {
-		E4Workbench.processHierarchy(application);
-		((Notifier) application).eAdapters().add(
-				new UIEventPublisher(applicationContext));
+		final UIEventPublisher ep = new UIEventPublisher(applicationContext);
+		((Notifier) application).eAdapters().add(ep);
+		applicationContext.set(UIEventPublisher.class, ep);
 
 		applicationContext.set(ISaveHandler.class.getName(),
-				new ISaveHandler() {
+				new PartServiceSaveHandler() {
 					public Save[] promptToSave(Collection<MPart> saveablePart) {
 						Save[] ret = new Save[saveablePart.size()];
 						Arrays.fill(ret, ISaveHandler.Save.YES);
@@ -10100,6 +10170,7 @@ public class EPartServiceTest extends UITest {
 					public Save promptToSave(MPart saveablePart) {
 						return ISaveHandler.Save.YES;
 					}
+
 				});
 	}
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2009 IBM Corporation and others.
+ * Copyright (c) 2008, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -20,12 +20,24 @@ import org.eclipse.ui.statushandlers.StatusManager;
 import org.eclipse.ui.statushandlers.StatusManager.INotificationTypes;
 
 import junit.framework.TestCase;
+import junit.framework.TestSuite;
 
 /**
  * @since 3.5
  *
  */
 public class StatusHandlingConfigurationTest extends TestCase {
+	public static TestSuite suite() {
+		TestSuite ts = new TestSuite("org.eclipse.ui.tests.statushandlers.StatusHandlingConfigurationTest");
+		ts.addTest(new StatusHandlingConfigurationTest("testFreeStatusHandler"));
+		ts.addTest(new StatusHandlingConfigurationTest("testDefaultNotification"));
+		return ts;
+	}
+	
+	public StatusHandlingConfigurationTest(String name) {
+		super(name);
+	}
+	
 	public void testFreeStatusHandler(){
 		final StatusAdapter adapter = new StatusAdapter(new Status(IStatus.ERROR,"fakeplugin","testmessage"));
 		final boolean[] called = new boolean[]{false};

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2010 IBM Corporation and others.
+ * Copyright (c) 2009, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,12 +7,16 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Tristan Hume - <trishume@gmail.com> -
+ *     		Fix for Bug 2369 [Workbench] Would like to be able to save workspace without exiting
+ *     		Implemented workbench auto-save to correctly restore state in case of crash.
  ******************************************************************************/
 
 package org.eclipse.e4.ui.workbench.renderers.swt;
 
+import org.eclipse.e4.core.commands.ExpressionContext;
+
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import org.eclipse.e4.core.contexts.IEclipseContext;
@@ -24,9 +28,8 @@ import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.application.ui.SideValue;
 import org.eclipse.e4.ui.model.application.ui.basic.MTrimBar;
 import org.eclipse.e4.ui.model.application.ui.basic.MTrimElement;
-import org.eclipse.e4.ui.model.application.ui.menu.MToolBar;
+import org.eclipse.e4.ui.model.application.ui.basic.MTrimmedWindow;
 import org.eclipse.e4.ui.model.application.ui.menu.MTrimContribution;
-import org.eclipse.e4.ui.workbench.modeling.ExpressionContext;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.DisposeEvent;
 import org.eclipse.swt.events.DisposeListener;
@@ -69,8 +72,6 @@ public class TrimBarRenderer extends SWTPartRenderer {
 		}
 	}
 
-	private HashMap<MTrimBar, ArrayList<ArrayList<MTrimElement>>> pendingCleanup = new HashMap<MTrimBar, ArrayList<ArrayList<MTrimElement>>>();
-
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -97,35 +98,38 @@ public class TrimBarRenderer extends SWTPartRenderer {
 			return null;
 
 		Composite parentComp = (Composite) parent;
-		if (!(parentComp.getLayout() instanceof TrimmedPartLayout))
-			return null;
 
+		Composite trimComposite = null;
 		final MTrimBar trimModel = (MTrimBar) element;
-		TrimmedPartLayout tpl = (TrimmedPartLayout) parentComp.getLayout();
+		if (parentComp.getLayout() instanceof TrimmedPartLayout) {
+			TrimmedPartLayout tpl = (TrimmedPartLayout) parentComp.getLayout();
 
-		Composite result = null;
-		switch (trimModel.getSide().getValue()) {
-		case SideValue.TOP_VALUE:
-			result = tpl.getTrimComposite(parentComp, SWT.TOP);
-			break;
-		case SideValue.BOTTOM_VALUE:
-			result = tpl.getTrimComposite(parentComp, SWT.BOTTOM);
-			break;
-		case SideValue.LEFT_VALUE:
-			result = tpl.getTrimComposite(parentComp, SWT.LEFT);
-			break;
-		case SideValue.RIGHT_VALUE:
-			result = tpl.getTrimComposite(parentComp, SWT.RIGHT);
-			break;
-		default:
-			return null;
-		}
-		result.addDisposeListener(new DisposeListener() {
-			public void widgetDisposed(DisposeEvent e) {
-				cleanUp(trimModel);
+			switch (trimModel.getSide().getValue()) {
+			case SideValue.TOP_VALUE:
+				trimComposite = tpl.getTrimComposite(parentComp, SWT.TOP);
+				break;
+			case SideValue.BOTTOM_VALUE:
+				trimComposite = tpl.getTrimComposite(parentComp, SWT.BOTTOM);
+				break;
+			case SideValue.LEFT_VALUE:
+				trimComposite = tpl.getTrimComposite(parentComp, SWT.LEFT);
+				break;
+			case SideValue.RIGHT_VALUE:
+				trimComposite = tpl.getTrimComposite(parentComp, SWT.RIGHT);
+				break;
+			default:
+				return null;
 			}
-		});
-		return result;
+			trimComposite.addDisposeListener(new DisposeListener() {
+				public void widgetDisposed(DisposeEvent e) {
+					cleanUp(trimModel);
+				}
+			});
+		} else {
+			trimComposite = new Composite(parentComp, SWT.NONE);
+			trimComposite.setLayout(new TrimBarLayout(true));
+		}
+		return trimComposite;
 	}
 
 	@Override
@@ -164,10 +168,15 @@ public class TrimBarRenderer extends SWTPartRenderer {
 			ArrayList<MTrimContribution> toContribute, IEclipseContext ctx,
 			final ExpressionContext eContext) {
 		HashSet<String> existingToolbarIds = new HashSet<String>();
-		for (MTrimElement item : trimModel.getChildren()) {
-			String id = item.getElementId();
-			if (item instanceof MToolBar && id != null) {
-				existingToolbarIds.add(id);
+
+		MTrimmedWindow topWin = (MTrimmedWindow) modelService
+				.getTopLevelWindowFor(trimModel);
+		for (MTrimBar bar : topWin.getTrimBars()) {
+			for (MTrimElement item : bar.getChildren()) {
+				String id = item.getElementId();
+				if (id != null) {
+					existingToolbarIds.add(id);
+				}
 			}
 		}
 
@@ -202,13 +211,7 @@ public class TrimBarRenderer extends SWTPartRenderer {
 							}
 						});
 					}
-					ArrayList<ArrayList<MTrimElement>> lists = pendingCleanup
-							.get(trimModel);
-					if (lists == null) {
-						lists = new ArrayList<ArrayList<MTrimElement>>();
-						pendingCleanup.put(trimModel, lists);
-					}
-					lists.add(toRemove);
+					trimModel.getPendingCleanup().addAll(toRemove);
 				}
 			}
 			// We're done if the retryList is now empty (everything done) or
@@ -218,16 +221,14 @@ public class TrimBarRenderer extends SWTPartRenderer {
 		}
 	}
 
+	/**
+	 * @param element
+	 *            the trimBar to be cleaned up
+	 */
 	protected void cleanUp(MTrimBar element) {
-		ArrayList<ArrayList<MTrimElement>> lists = pendingCleanup
-				.remove(element);
-		if (lists == null) {
-			return;
+		for (MTrimElement child : element.getPendingCleanup()) {
+			element.getChildren().remove(child);
 		}
-		for (ArrayList<MTrimElement> list : lists) {
-			for (MTrimElement child : list) {
-				element.getChildren().remove(child);
-			}
-		}
+		element.getPendingCleanup().clear();
 	}
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2009 IBM Corporation and others.
+ * Copyright (c) 2008, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,12 +13,18 @@ package org.eclipse.ui.tests.session;
 import org.eclipse.ui.tests.harness.util.RCPTestWorkbenchAdvisor;
 
 import junit.framework.TestCase;
+import junit.framework.TestSuite;
 
 
 /**
  * @since 3.5
  */
 public class RestoreSessionTest extends TestCase {
+	public static TestSuite suite() {
+		TestSuite ts = new TestSuite("org.eclipse.ui.tests.session.RestoreSessionTest");
+		ts.addTest(new RestoreSessionTest("testDisplayAccess"));
+		return ts;
+	}
 	
 	public RestoreSessionTest(String name) {
 		super(name);

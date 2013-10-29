@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2011 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,7 +24,6 @@ import org.eclipse.e4.ui.model.application.MApplication;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.e4.ui.services.IServiceConstants;
 import org.eclipse.e4.ui.workbench.modeling.ESelectionService;
-import org.eclipse.jface.viewers.IPostSelectionProvider;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.ISelectionChangedListener;
 import org.eclipse.jface.viewers.ISelectionProvider;
@@ -55,7 +54,9 @@ public class SelectionService implements ISelectionChangedListener, ISelectionSe
 	private IWorkbenchPart activePart;
 
 	private ListenerList listeners = new ListenerList();
+	private ListenerList postSelectionListeners = new ListenerList();
 	private Map<String, Set<ISelectionListener>> targetedListeners = new HashMap<String, Set<ISelectionListener>>();
+	private Map<String, Set<ISelectionListener>> targetedPostSelectionListeners = new HashMap<String, Set<ISelectionListener>>();
 
 	private org.eclipse.e4.ui.workbench.modeling.ISelectionListener listener = new org.eclipse.e4.ui.workbench.modeling.ISelectionListener() {
 		public void selectionChanged(MPart part, Object selection) {
@@ -72,9 +73,18 @@ public class SelectionService implements ISelectionChangedListener, ISelectionSe
 				IWorkbenchPart workbenchPart = ((CompatibilityPart) client).getPart();
 				notifyListeners(part.getElementId(), workbenchPart, (ISelection) selection);
 			}
+		}
+	};
 
-			if (page != null) {
-				page.updateShowInSources(part);
+	private org.eclipse.e4.ui.workbench.modeling.ISelectionListener postListener = new org.eclipse.e4.ui.workbench.modeling.ISelectionListener() {
+		public void selectionChanged(MPart part, Object selection) {
+			selection = createCompatibilitySelection(selection);
+
+			Object client = part.getObject();
+			if (client instanceof CompatibilityPart) {
+				IWorkbenchPart workbenchPart = ((CompatibilityPart) client).getPart();
+				notifyPostSelectionListeners(part.getElementId(), workbenchPart,
+						(ISelection) selection);
 			}
 		}
 	};
@@ -107,41 +117,18 @@ public class SelectionService implements ISelectionChangedListener, ISelectionSe
 				}
 
 				notifyListeners(activePart.getSite().getId(), activePart, selection);
+				notifyPostSelectionListeners(activePart.getSite().getId(), activePart, selection);
 			}
 		}
 	}
 
 	@Inject
 	void setPart(@Optional @Named(IServiceConstants.ACTIVE_PART) final MPart part) {
-		if (activePart != null) {
-			ISelectionProvider selectionProvider = activePart.getSite().getSelectionProvider();
-			if (selectionProvider != null) {
-				selectionProvider.removeSelectionChangedListener(this);
-
-				if (selectionProvider instanceof IPostSelectionProvider) {
-					((IPostSelectionProvider) selectionProvider)
-							.removePostSelectionChangedListener(this);
-				}
-			}
-			activePart = null;
-		}
-
+		activePart = null;
 		if (part != null) {
 			Object client = part.getObject();
 			if (client instanceof CompatibilityPart) {
 				IWorkbenchPart workbenchPart = ((CompatibilityPart) client).getPart();
-
-				ISelectionProvider selectionProvider = workbenchPart.getSite()
-						.getSelectionProvider();
-				if (selectionProvider != null) {
-					selectionProvider.addSelectionChangedListener(this);
-
-					if (selectionProvider instanceof IPostSelectionProvider) {
-						((IPostSelectionProvider) selectionProvider)
-								.addPostSelectionChangedListener(this);
-					}
-				}
-
 				activePart = workbenchPart;
 			}
 		}
@@ -151,10 +138,12 @@ public class SelectionService implements ISelectionChangedListener, ISelectionSe
 	void setSelectionService(@Optional ESelectionService selectionService) {
 		if (this.selectionService != null) {
 			this.selectionService.removeSelectionListener(listener);
+			this.selectionService.removePostSelectionListener(postListener);
 		}
 
 		if (selectionService != null) {
 			selectionService.addSelectionListener(listener);
+			selectionService.addPostSelectionListener(postListener);
 			this.selectionService = selectionService;
 		}
 	 }
@@ -168,6 +157,25 @@ public class SelectionService implements ISelectionChangedListener, ISelectionSe
 
 		if (id != null) {
 			Set<ISelectionListener> listeners = targetedListeners.get(id);
+			if (listeners != null) {
+				for (ISelectionListener listener : listeners) {
+					if (selection != null || listener instanceof INullSelectionListener) {
+						listener.selectionChanged(workbenchPart, selection);
+					}
+				}
+			}
+		}
+	}
+
+	private void notifyPostSelectionListeners(String id, IWorkbenchPart workbenchPart, ISelection selection) {
+		for (Object listener : postSelectionListeners.getListeners()) {
+			if (selection != null || listener instanceof INullSelectionListener) {
+				((ISelectionListener) listener).selectionChanged(workbenchPart, selection);
+			}
+		}
+		
+		if (id != null) {
+			Set<ISelectionListener> listeners = targetedPostSelectionListeners.get(id);
 			if (listeners != null) {
 				for (ISelectionListener listener : listeners) {
 					if (selection != null || listener instanceof INullSelectionListener) {
@@ -213,8 +221,7 @@ public class SelectionService implements ISelectionChangedListener, ISelectionSe
 	 * .ui.ISelectionListener)
 	 */
 	public void addPostSelectionListener(ISelectionListener listener) {
-		// TODO compat addPostSelectionListener
-		addSelectionListener(listener);
+		postSelectionListeners.add(listener);
 	}
 
 	/*
@@ -225,8 +232,12 @@ public class SelectionService implements ISelectionChangedListener, ISelectionSe
 	 * , org.eclipse.ui.ISelectionListener)
 	 */
 	public void addPostSelectionListener(String partId, ISelectionListener listener) {
-		// TODO compat addPostSelectionListener
-		addSelectionListener(partId, listener);
+		Set<ISelectionListener> listeners = targetedPostSelectionListeners.get(partId);
+		if (listeners == null) {
+			listeners = new HashSet<ISelectionListener>();
+			targetedPostSelectionListeners.put(partId, listeners);
+		}
+		listeners.add(listener);
 	}
 
 	/*
@@ -294,8 +305,7 @@ public class SelectionService implements ISelectionChangedListener, ISelectionSe
 	 * .ui.ISelectionListener)
 	 */
 	public void removePostSelectionListener(ISelectionListener listener) {
-		// TODO compat removePostSelectionListener
-		removeSelectionListener(listener);
+		postSelectionListeners.remove(listener);
 	}
 
 	/*
@@ -306,8 +316,10 @@ public class SelectionService implements ISelectionChangedListener, ISelectionSe
 	 * .String, org.eclipse.ui.ISelectionListener)
 	 */
 	public void removePostSelectionListener(String partId, ISelectionListener listener) {
-		// TODO compat removePostSelectionListener
-		removeSelectionListener(partId, listener);
+		Set<ISelectionListener> listeners = targetedPostSelectionListeners.get(partId);
+		if (listeners != null) {
+			listeners.remove(listener);
+		}
 	}
 
 	/*

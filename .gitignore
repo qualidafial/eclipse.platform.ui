@@ -1,4 +1,6 @@
+/.project
 /*/*/bin/
+/*/*/target
 *~
 *.rej
 *.bak

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2012 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -20,7 +20,7 @@ import org.eclipse.core.expressions.EvaluationResult;
 import org.eclipse.core.expressions.Expression;
 import org.eclipse.core.expressions.ExpressionInfo;
 import org.eclipse.core.internal.expressions.ReferenceExpression;
-import org.eclipse.core.runtime.CoreException;
+import org.eclipse.e4.core.commands.ExpressionContext;
 import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.ui.model.application.MApplication;
 import org.eclipse.e4.ui.model.application.commands.MCommand;
@@ -41,7 +41,6 @@ import org.eclipse.e4.ui.model.application.ui.menu.MToolBarContribution;
 import org.eclipse.e4.ui.model.application.ui.menu.MToolBarElement;
 import org.eclipse.e4.ui.model.application.ui.menu.MToolBarSeparator;
 import org.eclipse.e4.ui.model.application.ui.menu.MTrimContribution;
-import org.eclipse.e4.ui.workbench.modeling.ExpressionContext;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 
@@ -185,6 +184,11 @@ public final class ContributionsAnalyzer {
 			return !menuContribution.getTags().contains(ContributionsAnalyzer.MC_MENU)
 					&& menuContribution.getTags().contains(ContributionsAnalyzer.MC_POPUP);
 		}
+		if (!includePopups) {
+			// not including popups, so filter out popup menu contributions if the menu is a regular
+			// menu
+			return menuContribution.getTags().contains(ContributionsAnalyzer.MC_POPUP);
+		}
 		return false;
 	}
 
@@ -224,20 +228,28 @@ public final class ContributionsAnalyzer {
 		return isVisible((MCoreExpression) contribution.getVisibleWhen(), eContext);
 	}
 
-	public static boolean isVisible(MCoreExpression exp, ExpressionContext eContext) {
-		Expression ref = null;
+	public static boolean isVisible(MCoreExpression exp, final ExpressionContext eContext) {
+		final Expression ref;
 		if (exp.getCoreExpression() instanceof Expression) {
 			ref = (Expression) exp.getCoreExpression();
 		} else {
 			ref = new ReferenceExpression(exp.getCoreExpressionId());
 			exp.setCoreExpression(ref);
 		}
+		// Creates dependency on a predefined value that can be "poked" by the evaluation
+		// service
+		ExpressionInfo info = ref.computeExpressionInfo();
+		String[] names = info.getAccessedPropertyNames();
+		for (String name : names) {
+			eContext.getVariable(name + ".evaluationServiceLink"); //$NON-NLS-1$
+		}
+		boolean ret = false;
 		try {
-			return ref.evaluate(eContext) != EvaluationResult.FALSE;
-		} catch (CoreException e) {
+			ret = ref.evaluate(eContext) != EvaluationResult.FALSE;
+		} catch (Exception e) {
 			trace("isVisible exception", e); //$NON-NLS-1$
 		}
-		return false;
+		return ret;
 	}
 
 	public static void addMenuContributions(final MMenu menuModel,
@@ -400,11 +412,14 @@ public final class ContributionsAnalyzer {
 		private String parentId;
 		private String position;
 		private MCoreExpression vexp;
+		private Object factory;
 
-		public Key(String parentId, String position, List<String> tags, MCoreExpression vexp) {
+		public Key(String parentId, String position, List<String> tags, MCoreExpression vexp,
+				Object factory) {
 			this.parentId = parentId;
 			this.position = position;
 			this.vexp = vexp;
+			this.factory = factory;
 			if (tags.contains("scheme:menu")) { //$NON-NLS-1$
 				tag = 1;
 			} else if (tags.contains("scheme:popup")) { //$NON-NLS-1$
@@ -434,7 +449,8 @@ public final class ContributionsAnalyzer {
 			Object exp1 = vexp == null ? null : vexp.getCoreExpression();
 			Object exp2 = other.vexp == null ? null : other.vexp.getCoreExpression();
 			return Util.equals(parentId, other.parentId) && Util.equals(position, other.position)
-					&& getSchemeTag() == other.getSchemeTag() && Util.equals(exp1, exp2);
+					&& getSchemeTag() == other.getSchemeTag() && Util.equals(exp1, exp2)
+					&& Util.equals(factory, other.factory);
 		}
 
 		@Override
@@ -445,6 +461,7 @@ public final class ContributionsAnalyzer {
 				hc = hc * 87 + Util.hashCode(position);
 				hc = hc * 87 + getSchemeTag();
 				hc = hc * 87 + Util.hashCode(exp1);
+				hc = hc * 87 + Util.hashCode(factory);
 			}
 			return hc;
 		}
@@ -457,11 +474,12 @@ public final class ContributionsAnalyzer {
 	}
 
 	static class MenuKey extends Key {
+		static final String FACTORY = "ContributionFactory"; //$NON-NLS-1$
 		private MMenuContribution contribution;
 
 		public MenuKey(MMenuContribution mc) {
 			super(mc.getParentId(), mc.getPositionInParent(), mc.getTags(), (MCoreExpression) mc
-					.getVisibleWhen());
+					.getVisibleWhen(), mc.getTransientData().get(FACTORY));
 			this.contribution = mc;
 			mc.setWidget(this);
 		}
@@ -472,11 +490,12 @@ public final class ContributionsAnalyzer {
 	}
 
 	static class ToolBarKey extends Key {
+		static final String FACTORY = "ToolBarContributionFactory"; //$NON-NLS-1$
 		private MToolBarContribution contribution;
 
 		public ToolBarKey(MToolBarContribution mc) {
 			super(mc.getParentId(), mc.getPositionInParent(), mc.getTags(), (MCoreExpression) mc
-					.getVisibleWhen());
+					.getVisibleWhen(), mc.getTransientData().get(FACTORY));
 			this.contribution = mc;
 			mc.setWidget(this);
 		}
@@ -491,7 +510,7 @@ public final class ContributionsAnalyzer {
 
 		public TrimKey(MTrimContribution mc) {
 			super(mc.getParentId(), mc.getPositionInParent(), mc.getTags(), (MCoreExpression) mc
-					.getVisibleWhen());
+					.getVisibleWhen(), null);
 			this.contribution = mc;
 			mc.setWidget(this);
 		}

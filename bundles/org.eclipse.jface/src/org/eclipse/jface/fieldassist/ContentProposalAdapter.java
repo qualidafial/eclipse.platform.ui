@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2010 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,7 +15,12 @@ import java.util.ArrayList;
 
 import org.eclipse.core.runtime.Assert;
 import org.eclipse.core.runtime.ListenerList;
-
+import org.eclipse.jface.bindings.keys.KeyStroke;
+import org.eclipse.jface.dialogs.PopupDialog;
+import org.eclipse.jface.preference.JFacePreferences;
+import org.eclipse.jface.resource.JFaceResources;
+import org.eclipse.jface.util.Util;
+import org.eclipse.jface.viewers.ILabelProvider;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.DisposeEvent;
 import org.eclipse.swt.events.DisposeListener;
@@ -38,13 +43,6 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
-
-import org.eclipse.jface.bindings.keys.KeyStroke;
-import org.eclipse.jface.dialogs.PopupDialog;
-import org.eclipse.jface.preference.JFacePreferences;
-import org.eclipse.jface.resource.JFaceResources;
-import org.eclipse.jface.util.Util;
-import org.eclipse.jface.viewers.ILabelProvider;
 
 /**
  * ContentProposalAdapter can be used to attach content proposal behavior to a
@@ -435,6 +433,7 @@ public class ContentProposalAdapter {
 			/*
 			 * Create a text control for showing the info about a proposal.
 			 */
+			@Override
 			protected Control createDialogArea(Composite parent) {
 				text = new Text(parent, SWT.MULTI | SWT.READ_ONLY | SWT.WRAP
 						| SWT.NO_FOCUS);
@@ -449,6 +448,7 @@ public class ContentProposalAdapter {
 
 				// since SWT.NO_FOCUS is only a hint...
 				text.addFocusListener(new FocusAdapter() {
+					@Override
 					public void focusGained(FocusEvent event) {
 						ContentProposalPopup.this.close();
 					}
@@ -459,6 +459,7 @@ public class ContentProposalAdapter {
 			/*
 			 * Adjust the bounds so that we appear adjacent to our parent shell
 			 */
+			@Override
 			protected void adjustBounds() {
 				Rectangle parentBounds = getParentShell().getBounds();
 				Rectangle proposedBounds;
@@ -506,6 +507,7 @@ public class ContentProposalAdapter {
 			 * (non-Javadoc)
 			 * @see org.eclipse.jface.dialogs.PopupDialog#getForeground()
 			 */
+			@Override
 			protected Color getForeground() {
 				return control.getDisplay().
 						getSystemColor(SWT.COLOR_INFO_FOREGROUND);
@@ -515,6 +517,7 @@ public class ContentProposalAdapter {
 			 * (non-Javadoc)
 			 * @see org.eclipse.jface.dialogs.PopupDialog#getBackground()
 			 */
+			@Override
 			protected Color getBackground() {
 				return control.getDisplay().
 						getSystemColor(SWT.COLOR_INFO_BACKGROUND);
@@ -608,6 +611,7 @@ public class ContentProposalAdapter {
 		 * (non-Javadoc)
 		 * @see org.eclipse.jface.dialogs.PopupDialog#getForeground()
 		 */
+		@Override
 		protected Color getForeground() {
 			return JFaceResources.getColorRegistry().get(
 					JFacePreferences.CONTENT_ASSIST_FOREGROUND_COLOR);
@@ -617,6 +621,7 @@ public class ContentProposalAdapter {
 		 * (non-Javadoc)
 		 * @see org.eclipse.jface.dialogs.PopupDialog#getBackground()
 		 */
+		@Override
 		protected Color getBackground() {
 			return JFaceResources.getColorRegistry().get(
 					JFacePreferences.CONTENT_ASSIST_BACKGROUND_COLOR);
@@ -630,6 +635,7 @@ public class ContentProposalAdapter {
 		 * @param parent The parent composite to contain the dialog area; must
 		 * not be <code>null</code>.
 		 */
+		@Override
 		protected final Control createDialogArea(final Composite parent) {
 			// Use virtual where appropriate (see flag definition).
 			if (USE_VIRTUAL) {
@@ -677,6 +683,7 @@ public class ContentProposalAdapter {
 		 * 
 		 * @see org.eclipse.jface.dialogs.PopupDialog.adjustBounds()
 		 */
+		@Override
 		protected void adjustBounds() {
 			// Get our control's location in display coordinates.
 			Point location = control.getDisplay().map(control.getParent(), null, control.getLocation());			
@@ -887,6 +894,7 @@ public class ContentProposalAdapter {
 		 * 
 		 * @see org.eclipse.jface.window.Window#open()
 		 */
+		@Override
 		public int open() {
 			int value = super.open();
 			if (popupCloser == null) {
@@ -907,6 +915,7 @@ public class ContentProposalAdapter {
 		 * @return <code>true</code> if the window is (or was already) closed,
 		 *         and <code>false</code> if it is still open
 		 */
+		@Override
 		public boolean close() {
 			popupCloser.removeListeners();
 			if (infoPopup != null) {
@@ -1042,7 +1051,7 @@ public class ContentProposalAdapter {
 
 			// Check each string for a match. Use the string displayed to the
 			// user, not the proposal content.
-			ArrayList list = new ArrayList();
+			ArrayList<IContentProposal> list = new ArrayList<IContentProposal>();
 			for (int i = 0; i < proposals.length; i++) {
 				String string = getString(proposals[i]);
 				if (string.length() >= filterString.length()
@@ -1052,7 +1061,7 @@ public class ContentProposalAdapter {
 				}
 
 			}
-			return (IContentProposal[]) list.toArray(new IContentProposal[list
+			return list.toArray(new IContentProposal[list
 					.size()]);
 		}
 
@@ -1110,6 +1119,7 @@ public class ContentProposalAdapter {
 	 *             {@link IContentProposalProvider}, such as that performed by
 	 *             {@link SimpleContentProposalProvider}
 	 */
+	@Deprecated
 	public static final int FILTER_CUMULATIVE = 3;
 
 	/*
@@ -1346,7 +1356,7 @@ public class ContentProposalAdapter {
 	 * dispose the label provider when it is no longer needed.
 	 * 
 	 * @param labelProvider
-	 *            the (@link ILabelProvider} used to show proposals.
+	 *            the {@link ILabelProvider} used to show proposals.
 	 */
 	public void setLabelProvider(ILabelProvider labelProvider) {
 		this.labelProvider = labelProvider;

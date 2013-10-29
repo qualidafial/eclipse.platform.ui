@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2006 IBM Corporation and others.
+ * Copyright (c) 2004, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -65,7 +65,8 @@ public class LazySortedCollection {
     
     // This object is inserted as the value into any node scheduled for lazy removal
     private Object lazyRemovalFlag = new Object() {
-        public String toString() {
+        @Override
+		public String toString() {
             return "Lazy removal flag";  //$NON-NLS-1$
         }
     };

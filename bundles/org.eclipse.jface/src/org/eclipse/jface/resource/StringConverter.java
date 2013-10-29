@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2008 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,7 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Christian Georgi <christian.georgi@sap.com> - [Themes] Invalid RGB color value in themes extension makes workbench unusable - http://bugs.eclipse.org/419435
  *******************************************************************************/
 package org.eclipse.jface.resource;
 
@@ -93,7 +94,7 @@ public class StringConverter {
      * @throws DataFormatException thrown if request string could not seperated
      */
     public static String[] asArray(String value) throws DataFormatException {
-        ArrayList list = new ArrayList();
+        ArrayList<String> list = new ArrayList<String>();
         StringTokenizer stok = new StringTokenizer(value);
         while (stok.hasMoreTokens()) {
             list.add(stok.nextToken());
@@ -306,7 +307,7 @@ public class StringConverter {
 		if (prop == null || prop.trim().equals("")) { //$NON-NLS-1$
 			return new String[0];
 		}
-		ArrayList list = new ArrayList();
+		ArrayList<String> list = new ArrayList<String>();
 		StringTokenizer tokens = new StringTokenizer(prop, separator); 
 		while (tokens.hasMoreTokens()) {
 			String token = tokens.nextToken().trim();
@@ -314,7 +315,7 @@ public class StringConverter {
 				list.add(token);
 			}
 		}
-		return list.isEmpty() ? new String[0] : (String[]) list.toArray(new String[list.size()]);
+		return list.isEmpty() ? new String[0] : list.toArray(new String[list.size()]);
 	}
 
     /**
@@ -326,7 +327,7 @@ public class StringConverter {
      */
     public static FontData[] asFontDataArray(String value) {
         String[] strings = getArrayFromList(value, FONT_SEPARATOR);
-        ArrayList data = new ArrayList(strings.length);
+        ArrayList<FontData> data = new ArrayList<FontData>(strings.length);
         for (int i = 0; i < strings.length; i++) {
             try {
                 data.add(StringConverter.asFontData(strings[i]));
@@ -334,7 +335,7 @@ public class StringConverter {
                 //do-nothing
             }
         }
-        return (FontData[]) data.toArray(new FontData[data.size()]);
+        return data.toArray(new FontData[data.size()]);
     }
 
     /**
@@ -563,6 +564,8 @@ public class StringConverter {
                 throw new DataFormatException(e.getMessage());
             }
             return new RGB(rval, gval, bval);
+        } catch (IllegalArgumentException e) {
+            throw new DataFormatException(e.getMessage());
         } catch (NoSuchElementException e) {
             throw new DataFormatException(e.getMessage());
         }
@@ -862,7 +865,8 @@ public class StringConverter {
      * @return The string representation of the font data object.
      * @deprecated use asString(FontData)
      */
-    public static String asDisplayableString(FontData value) {
+    @Deprecated
+	public static String asDisplayableString(FontData value) {
         Assert.isNotNull(value);
         StringBuffer buffer = new StringBuffer();
         buffer.append(value.getName());

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Fair Isaac Corporation and others.
+ * Copyright (c) 2011, 2012 Fair Isaac Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,7 +11,6 @@
 
 package org.eclipse.ui.model;
 
-import org.eclipse.jface.viewers.DelegatingStyledCellLabelProvider;
 import org.eclipse.jface.viewers.StyledString;
 
 /**
@@ -21,7 +20,7 @@ import org.eclipse.jface.viewers.StyledString;
  * @see IWorkbenchAdapter
  * @see WorkbenchLabelProvider
  * @see BaseWorkbenchContentProvider
- * @see DelegatingStyledCellLabelProvider.IStyledLabelProvider
+ * @see org.eclipse.jface.viewers.DelegatingStyledCellLabelProvider.IStyledLabelProvider
  * 
  * @since 3.7
  */

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2008 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,6 +16,15 @@ package org.eclipse.e4.ui.model.application.ui;
  * A representation of the model object '<em><b>Dirtyable</b></em>'.
  * <!-- end-user-doc -->
  *
+ * <!-- begin-model-doc -->
+ * <p>
+ * This class should be mixed into any UI element that should participate in the
+ * dirty / save handling. Parts are the most likely scenario for this but it exists as
+ * a mix-in to allow for future model extensions.
+ * </p>
+ * @since 1.0
+ * <!-- end-model-doc -->
+ *
  * <p>
  * The following features are supported:
  * <ul>
@@ -30,11 +39,12 @@ public interface MDirtyable {
 	/**
 	 * Returns the value of the '<em><b>Dirty</b></em>' attribute.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Dirty</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * The current dirty state of the UI element.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Dirty</em>' attribute.
 	 * @see #setDirty(boolean)
 	 * @model transient="true" derived="true"

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2009, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -19,6 +19,7 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.internal.PartSite;
 import org.eclipse.ui.internal.PopupMenuExtender;
 import org.eclipse.ui.tests.api.ListElement;
 import org.eclipse.ui.tests.api.ListView;
@@ -56,7 +57,7 @@ public class Bug264804Test extends UITestCase {
 		try {
 			popupMenuExtender = new PopupMenuExtender(
 					"org.eclipse.ui.tests.Bug264804", manager, prov, part,
-					false);
+					((PartSite)part.getSite()).getContext(), false);
 
 			Menu contextMenu = manager.createContextMenu(window.getShell());
 			// contextMenu.setVisible(true);

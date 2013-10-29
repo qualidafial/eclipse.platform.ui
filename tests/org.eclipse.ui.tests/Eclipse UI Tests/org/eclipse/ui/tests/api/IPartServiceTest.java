@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2010 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -333,7 +333,7 @@ public class IPartServiceTest extends UITestCase {
      * Includes regression test for: 
      *   Bug 60039 [ViewMgmt] (regression) IWorkbenchPage#findView returns non-null value after part has been closed
      */
-    public void testPartHiddenWhenClosedAndShared() throws Throwable {
+    public void XXXtestPartHiddenWhenClosedAndShared() throws Throwable {
         IPartListener2 listener = new TestPartListener2() {
             public void partHidden(IWorkbenchPartReference ref) {
                 super.partHidden(ref);

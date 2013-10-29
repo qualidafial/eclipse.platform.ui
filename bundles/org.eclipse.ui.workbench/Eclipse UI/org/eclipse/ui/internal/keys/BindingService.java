@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2010 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,19 +13,22 @@ package org.eclipse.ui.internal.keys;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import org.eclipse.core.commands.CommandManager;
 import org.eclipse.core.commands.ParameterizedCommand;
 import org.eclipse.core.commands.common.NotDefinedException;
 import org.eclipse.e4.core.commands.ECommandService;
+import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.core.di.annotations.Optional;
 import org.eclipse.e4.ui.bindings.EBindingService;
+import org.eclipse.e4.ui.bindings.internal.BindingTable;
+import org.eclipse.e4.ui.bindings.internal.BindingTableManager;
 import org.eclipse.e4.ui.bindings.keys.KeyBindingDispatcher;
 import org.eclipse.e4.ui.model.application.MApplication;
 import org.eclipse.e4.ui.model.application.commands.MBindingContext;
@@ -41,7 +44,9 @@ import org.eclipse.jface.bindings.IBindingManagerListener;
 import org.eclipse.jface.bindings.Scheme;
 import org.eclipse.jface.bindings.TriggerSequence;
 import org.eclipse.jface.bindings.keys.KeySequence;
+import org.eclipse.jface.bindings.keys.ParseException;
 import org.eclipse.jface.util.Util;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.commands.ICommandService;
 import org.eclipse.ui.internal.WorkbenchPlugin;
 import org.eclipse.ui.keys.IBindingService;
@@ -74,12 +79,44 @@ public final class BindingService implements IBindingService {
 	private BindingManager manager;
 
 	@Inject
+	private BindingTableManager tableManager;
+
+	@Inject
 	@Optional
 	private KeyBindingDispatcher dispatcher;
+
+	private BindingPersistence bp;
 
 	private Map<String, MBindingContext> bindingContexts = new HashMap<String, MBindingContext>();
 
 	private String[] activeSchemeIds;
+	
+	/**
+	 * Key assist dialog for workbench key bindings, lazily created and cached
+	 */
+	private GlobalKeyAssistDialog keyAssistDialog;
+
+	private IEclipseContext context;
+
+	@PostConstruct
+	void init() {
+		final Scheme activeScheme = manager.getActiveScheme();
+		if (activeScheme != null) {
+			activeSchemeIds = getSchemeIds(activeScheme.getId());
+			tableManager.setActiveSchemes(activeSchemeIds);
+		}
+		// Initialize BindingPersistence, its needed to install
+		// a preferences change listener. See bug 266604.
+		bp = new BindingPersistence(manager, commandManager) {
+			@Override
+			public void reRead() {
+				super.reRead();
+				// after having read the registry and preferences, persist
+				// and update the model
+				persistToModel(manager.getActiveScheme());
+			}
+		};
+	}
 
 	/*
 	 * (non-Javadoc)
@@ -87,7 +124,14 @@ public final class BindingService implements IBindingService {
 	 * @see org.eclipse.ui.services.IDisposable#dispose()
 	 */
 	public void dispose() {
+		if (bp != null) {
+			bp.dispose();
+		}
+	}
 
+	@Inject
+	public void setContext(IEclipseContext context) {
+		this.context = context;
 	}
 
 	/*
@@ -237,28 +281,15 @@ public final class BindingService implements IBindingService {
 	 * .bindings.TriggerSequence)
 	 */
 	public Map getPartialMatches(TriggerSequence trigger) {
-		final TriggerSequence[] prefixes = trigger.getPrefixes();
-		final int prefixesLength = prefixes.length;
-		if (prefixesLength == 0) {
-			return Collections.EMPTY_MAP;
+		final Collection<Binding> partialMatches = bindingService.getPartialMatches(trigger);
+		final Map<TriggerSequence, Binding> result = new HashMap<TriggerSequence, Binding>(
+				partialMatches.size());
+
+		for (Binding binding : partialMatches) {
+			result.put(binding.getTriggerSequence(), binding);
 		}
 
-		Collection<Binding> partialMatches = bindingService.getPartialMatches(trigger);
-		Map<TriggerSequence, Object> prefixTable = new HashMap<TriggerSequence, Object>();
-		for (Binding binding : partialMatches) {
-			for (int i = 0; i < prefixesLength; i++) {
-				final TriggerSequence prefix = prefixes[i];
-				final Object value = prefixTable.get(prefix);
-				if ((prefixTable.containsKey(prefix)) && (value instanceof Map)) {
-					((Map) value).put(prefixTable, binding);
-				} else {
-					final Map map = new HashMap();
-					prefixTable.put(prefix, map);
-					map.put(prefixTable, binding);
-				}
-			}
-		}
-		return prefixTable;
+		return result;
 	}
 
 	/*
@@ -327,7 +358,14 @@ public final class BindingService implements IBindingService {
 	 * @see org.eclipse.ui.keys.IBindingService#openKeyAssistDialog()
 	 */
 	public void openKeyAssistDialog() {
-		dispatcher.openMultiKeyAssistShell();
+		if (keyAssistDialog == null) {
+			Display.getCurrent();
+			keyAssistDialog = new GlobalKeyAssistDialog(context, dispatcher);
+		}
+		if (keyAssistDialog.getShell() == null) {
+			keyAssistDialog.setParentShell(Display.getCurrent().getActiveShell());
+		}
+		keyAssistDialog.open();
 	}
 
 	/*
@@ -338,17 +376,7 @@ public final class BindingService implements IBindingService {
 	 * .ui.commands.ICommandService)
 	 */
 	public void readRegistryAndPreferences(ICommandService commandService) {
-		BindingPersistence bp = new BindingPersistence(manager, commandManager);
 		bp.read();
-	}
-
-	private MCommand findCommand(String id) {
-		for (MCommand cmd : application.getCommands()) {
-			if (id.equals(cmd.getElementId())) {
-				return cmd;
-			}
-		}
-		return null;
 	}
 
 	private void saveLegacyPreferences(Scheme activeScheme, Binding[] bindings) throws IOException {
@@ -371,10 +399,14 @@ public final class BindingService implements IBindingService {
 	 */
 	public void savePreferences(Scheme activeScheme, Binding[] bindings) throws IOException {
 		saveLegacyPreferences(activeScheme, bindings);
+		persistToModel(activeScheme);
+	}
 
+	private void persistToModel(Scheme activeScheme) {
 		// save the active scheme to the model
 		writeSchemeToModel(activeScheme);
 		activeSchemeIds = getSchemeIds(activeScheme.getId());
+		tableManager.setActiveSchemes(activeSchemeIds);
 
 		// weeds out any of the deleted system bindings using the binding
 		// manager
@@ -418,7 +450,7 @@ public final class BindingService implements IBindingService {
 
 			// if we've switched schemes then we need to check to see if we
 			// should override any of the old bindings
-			final Binding conflict = bindingService.getPerfectMatch(binding.getTriggerSequence());
+			final Binding conflict = findPotentialConflict(binding);
 
 			if (conflict != null && conflict.getContextId().equals(binding.getContextId())) {
 				final int rc = compareTo(conflict, binding);
@@ -456,6 +488,17 @@ public final class BindingService implements IBindingService {
 			}
 
 		}
+	}
+
+	private Binding findPotentialConflict(Binding binding) {
+		BindingTable table = tableManager.getTable(binding.getContextId());
+		if (table != null) {
+			Binding perfectMatch = table.getPerfectMatch(binding.getTriggerSequence());
+			if (perfectMatch != null) {
+				return perfectMatch;
+			}
+		}
+		return bindingService.getPerfectMatch(binding.getTriggerSequence());
 	}
 
 	private final String[] getSchemeIds(String schemeId) {
@@ -609,10 +652,7 @@ public final class BindingService implements IBindingService {
 	 */
 	public final void addBinding(final Binding binding) {
 		MBindingTable table = getMTable(binding.getContextId());
-		MKeyBinding keyBinding = createMKeyBinding(binding);
-		if (keyBinding != null) {
-			table.getBindings().add(keyBinding);
-		}
+		createORupdateMKeyBinding(application, table, binding);
 	}
 
 	/**
@@ -634,47 +674,137 @@ public final class BindingService implements IBindingService {
 
 	}
 
+	static private boolean isSameBinding(MKeyBinding existingBinding, MCommand cmd, Binding binding) {
+		// see org.eclipse.jface.bindings.Binding#equals(final Object object)
+		if (!cmd.equals(existingBinding.getCommand()))
+			return false;
+		String existingKeySequence = existingBinding.getKeySequence();
+		if (existingKeySequence == null)
+			return false;
+		try {
+			final KeySequence existingSequence = KeySequence.getInstance(existingKeySequence);
+			if (!existingSequence.equals(binding.getTriggerSequence()))
+				return false;
+		} catch (ParseException e) {
+			return false;
+		}
 
-	private MKeyBinding createMKeyBinding(Binding binding) {
-		final MKeyBinding keyBinding = CommandsFactoryImpl.eINSTANCE.createKeyBinding();
+		// tags to look for:
+		final List<String> modelTags = existingBinding.getTags();
+
+		String schemeId = binding.getSchemeId();
+		if (schemeId != null && !schemeId.equals(BindingPersistence.getDefaultSchemeId())) {
+			if (!modelTags.contains(EBindingService.SCHEME_ID_ATTR_TAG + ":" + schemeId)) //$NON-NLS-1$
+				return false;
+		}
+		String locale = binding.getLocale();
+		if (locale != null) {
+			if (!modelTags.contains(EBindingService.LOCALE_ATTR_TAG + ":" + locale)) //$NON-NLS-1$
+				return false;
+		}
+		String platform = binding.getPlatform();
+		if (platform != null) {
+			if (!modelTags.contains(EBindingService.PLATFORM_ATTR_TAG + ":" + platform)) //$NON-NLS-1$
+				return false;
+		}
+		if (binding.getType() == Binding.USER) {
+			if (!modelTags.contains(EBindingService.TYPE_ATTR_TAG + ":user")) //$NON-NLS-1$
+				return false;
+		}
+		return true;
+	}
+
+	// TBD the "update" procedure should not typically be run.
+	// Add some sort of timestamp on the source files and update
+	// only when it changes
+	// TBD placement: this should be in the "3.x bridge" code
+	static public MKeyBinding createORupdateMKeyBinding(MApplication application,
+			MBindingTable table,
+			Binding binding) {
+		boolean addToTable = false;
 
 		ParameterizedCommand parmCmd = binding.getParameterizedCommand();
 
-		MCommand cmd = findCommand(parmCmd.getId());
+		String id = parmCmd.getId();
+		MCommand cmd = null;
+		for (MCommand appCommand : application.getCommands()) {
+			if (id.equals(appCommand.getElementId())) {
+				cmd = appCommand;
+				break;
+			}
+		}
 		if (cmd == null) {
 			return null;
 		}
-		keyBinding.setCommand(cmd);
-		// keyBinding.setKeySequence(binding.getTriggerSequence().format());
-		keyBinding.setKeySequence(binding.getTriggerSequence().format());
 
-		for (Object obj : parmCmd.getParameterMap().entrySet()) {
-			Map.Entry entry = (Map.Entry) obj;
-			MParameter p = CommandsFactoryImpl.eINSTANCE.createParameter();
-			p.setElementId((String) entry.getKey());
-			p.setName((String) entry.getKey());
-			p.setValue((String) entry.getValue());
-			keyBinding.getParameters().add(p);
+		MKeyBinding keyBinding = null;
+		for (MKeyBinding existingBinding : table.getBindings()) {
+			Binding b = (Binding) existingBinding.getTransientData().get(
+					EBindingService.MODEL_TO_BINDING_KEY);
+			if (binding.equals(b)) {
+				keyBinding = existingBinding;
+				break;
+			}
+			if (isSameBinding(existingBinding, cmd, binding)) {
+				keyBinding = existingBinding;
+				break;
+			}
 		}
 
-		List<String> tags = keyBinding.getTags();
-		// just add the 'schemeId' tag if the binding is for anything other than
-		// the default scheme
-		if (binding.getSchemeId() != null
-				&& !binding.getSchemeId().equals(BindingPersistence.getDefaultSchemeId())) {
-			tags.add(EBindingService.SCHEME_ID_ATTR_TAG + ":" + binding.getSchemeId()); //$NON-NLS-1$
+		if (keyBinding == null) {
+			addToTable = true;
+			keyBinding = CommandsFactoryImpl.eINSTANCE.createKeyBinding();
+			keyBinding.setCommand(cmd);
+			keyBinding.setKeySequence(binding.getTriggerSequence().toString());
+
+			for (Object obj : parmCmd.getParameterMap().entrySet()) {
+				@SuppressWarnings({ "unchecked" })
+				Map.Entry<String, String> entry = (Map.Entry<String, String>) obj;
+
+				String paramID = entry.getKey();
+				if (paramID == null)
+					continue;
+				List<MParameter> bindingParams = keyBinding.getParameters();
+				MParameter p = null;
+				for (MParameter param : bindingParams) {
+					if (paramID.equals(param.getElementId())) {
+						p = param;
+						break;
+					}
+				}
+				if (p == null) {
+					p = CommandsFactoryImpl.eINSTANCE.createParameter();
+					p.setElementId(entry.getKey());
+					keyBinding.getParameters().add(p);
+				}
+				p.setName(entry.getKey());
+				p.setValue(entry.getValue());
+			}
+
+			List<String> tags = keyBinding.getTags();
+			// just add the 'schemeId' tag if the binding is for anything other
+			// than
+			// the default scheme
+			if (binding.getSchemeId() != null
+					&& !binding.getSchemeId().equals(BindingPersistence.getDefaultSchemeId())) {
+				tags.add(EBindingService.SCHEME_ID_ATTR_TAG + ":" + binding.getSchemeId()); //$NON-NLS-1$
+			}
+			if (binding.getLocale() != null) {
+				tags.add(EBindingService.LOCALE_ATTR_TAG + ":" + binding.getLocale()); //$NON-NLS-1$
+			}
+			if (binding.getPlatform() != null) {
+				tags.add(EBindingService.PLATFORM_ATTR_TAG + ":" + binding.getPlatform()); //$NON-NLS-1$
+			}
+			// just add the 'type' tag if it's a user binding
+			if (binding.getType() == Binding.USER) {
+				tags.add(EBindingService.TYPE_ATTR_TAG + ":user"); //$NON-NLS-1$
+			}
 		}
-		if (binding.getLocale() != null) {
-			tags.add(EBindingService.LOCALE_ATTR_TAG + ":" + binding.getLocale()); //$NON-NLS-1$
-		}
-		if (binding.getPlatform() != null) {
-			tags.add(EBindingService.PLATFORM_ATTR_TAG + ":" + binding.getPlatform()); //$NON-NLS-1$
-		}
-		// just add the 'type' tag if it's a user binding
-		if (binding.getType() == Binding.USER) {
-			tags.add(EBindingService.TYPE_ATTR_TAG + ":user"); //$NON-NLS-1$
-		}
+
 		keyBinding.getTransientData().put(EBindingService.MODEL_TO_BINDING_KEY, binding);
+		if (addToTable) {
+			table.getBindings().add(keyBinding);
+		}
 		return keyBinding;
 	}
 
@@ -697,7 +827,7 @@ public final class BindingService implements IBindingService {
 					continue;
 				}
 				// check equality
-				if (curr.getKeySequence().equals(binding.getTriggerSequence().format())
+				if (curr.getKeySequence().equals(binding.getTriggerSequence().toString())
 						&& curr.getCommand() != null
 						&& curr.getCommand().getElementId().equals(commandId)) {
 

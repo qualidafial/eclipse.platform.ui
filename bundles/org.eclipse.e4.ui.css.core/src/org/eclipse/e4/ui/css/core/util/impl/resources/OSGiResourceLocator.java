@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2009, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,6 +10,9 @@
  *******************************************************************************/
 
 package org.eclipse.e4.ui.css.core.util.impl.resources;
+
+import java.io.IOException;
+import java.net.MalformedURLException;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -33,7 +36,16 @@ public class OSGiResourceLocator implements IResourceLocator {
 	 * @see org.eclipse.e4.ui.css.core.util.resources.IURIResolver#resolve(java.lang.String)
 	 */
 	public String resolve(String uri) {
-		return uri;
+		try {
+			URL resolvedURL = FileLocator.resolve(
+					new URL(startLocation + uri));
+			return resolvedURL.toString();
+		} catch (MalformedURLException e) {
+			
+		} catch (IOException e) {
+			
+		}
+		return null;
 	}
 
 	/*

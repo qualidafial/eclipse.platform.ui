@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2005 IBM Corporation and others.
+ * Copyright (c) 2004, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -43,6 +43,7 @@ public final class AcceptAllFilter implements IFilter {
     /* (non-Javadoc)
      * @see java.lang.Object#equals(java.lang.Object)
      */
+	@Override
 	public boolean equals(Object other) {
 		return other == this || other instanceof AcceptAllFilter;
 	}

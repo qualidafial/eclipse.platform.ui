@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,15 +14,17 @@ package org.eclipse.e4.ui.workbench.addons.dndaddon;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.application.ui.advanced.MArea;
 import org.eclipse.e4.ui.model.application.ui.advanced.MPerspective;
+import org.eclipse.e4.ui.model.application.ui.advanced.MPerspectiveStack;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.e4.ui.model.application.ui.basic.MPartSashContainer;
 import org.eclipse.e4.ui.model.application.ui.basic.MPartSashContainerElement;
 import org.eclipse.e4.ui.model.application.ui.basic.MPartStack;
 import org.eclipse.e4.ui.model.application.ui.basic.MStackElement;
 import org.eclipse.e4.ui.model.application.ui.basic.impl.BasicFactoryImpl;
-import org.eclipse.e4.ui.widgets.CTabFolder;
+import org.eclipse.e4.ui.workbench.IPresentationEngine;
 import org.eclipse.e4.ui.workbench.modeling.EModelService;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
@@ -33,22 +35,23 @@ import org.eclipse.swt.widgets.Display;
 public class SplitDropAgent extends DropAgent {
 	private static final int NOWHERE = -1;
 
+	private int curDockLocation = NOWHERE;
+	private boolean onEdge = false;
+
 	private MPartStack dropStack;
 	private CTabFolder dropCTF;
 	private Rectangle clientBounds;
-	private String weight;
-	private int curDockLocation = NOWHERE;
 
 	private Rectangle ctfBounds;
 
 	private MUIElement outerRelTo;
 	private Rectangle ocBounds;
-	private boolean outerDock;
+
+	private SplitFeedbackOverlay feedback = null;
 
 	/**
-	 * @param modelService
-	 *            The model service related to this agent
-	 * 
+	 * @param manager
+	 *            the DnDManager using this agent
 	 */
 	public SplitDropAgent(DnDManager manager) {
 		super(manager);
@@ -84,7 +87,12 @@ public class SplitDropAgent extends DropAgent {
 			dropStack = (MPartStack) parent;
 		}
 
-		weight = dropStack.getContainerData();
+		// We can't split ourselves with if the element being dragged is the only element in the
+		// stack (we check for '2' because the dragAgent puts a Drag Placeholder in the stack)
+		MUIElement dragParent = dragElement.getParent();
+		if (dragParent == dropStack && dropStack.getChildren().size() == 2)
+			return false;
+
 		dropCTF = (CTabFolder) dropStack.getWidget();
 
 		return true;
@@ -136,6 +144,9 @@ public class SplitDropAgent extends DropAgent {
 		} else {
 			ocBounds = null;
 		}
+
+		getDockLocation(info);
+		showFeedback(curDockLocation);
 	}
 
 	/*
@@ -149,7 +160,7 @@ public class SplitDropAgent extends DropAgent {
 		if (dndManager.getFeedbackStyle() != DnDManager.SIMPLE)
 			unDock(dragElement);
 		dndManager.clearOverlay();
-
+		clearFeedback();
 		curDockLocation = NOWHERE;
 
 		super.dragLeave(dragElement, info);
@@ -159,7 +170,9 @@ public class SplitDropAgent extends DropAgent {
 	public boolean drop(MUIElement dragElement, DnDInfo info) {
 		if (dndManager.getFeedbackStyle() != DnDManager.HOSTED && curDockLocation != NOWHERE) {
 			dock(dragElement, curDockLocation);
+			reactivatePart(dragElement);
 		}
+		clearFeedback();
 		return true;
 	}
 
@@ -175,23 +188,23 @@ public class SplitDropAgent extends DropAgent {
 		if (!clientBounds.contains(info.cursorPos))
 			return false;
 
-		boolean curOuter = outerDock;
+		boolean wasOnEdge = onEdge;
 		int dockLocation = getDockLocation(info);
-		if (dockLocation == curDockLocation && curOuter == outerDock)
+
+		if (feedback != null) {
+			feedback.setFeedback(getEnclosed(), getModified());
+		}
+
+		if (dockLocation == curDockLocation && wasOnEdge == onEdge)
 			return true;
 
-		if (dropStack == dragElement && !outerDock)
+		if (dropStack == dragElement && !onEdge)
 			return false;
 
 		curDockLocation = dockLocation;
 
 		if (curDockLocation != NOWHERE) {
-			Rectangle dockBounds = getDockBounds(curDockLocation);
-			if (dndManager.getFeedbackStyle() == DnDManager.HOSTED) {
-				dock(dragElement, curDockLocation);
-			} else if (dndManager.getFeedbackStyle() == DnDManager.GHOSTED) {
-				dndManager.setHostBounds(dockBounds);
-			}
+			showFeedback(curDockLocation);
 			dndManager.setCursor(Display.getCurrent().getSystemCursor(SWT.CURSOR_HAND));
 		} else {
 			unDock(dragElement);
@@ -202,90 +215,103 @@ public class SplitDropAgent extends DropAgent {
 	}
 
 	/**
+	 * for 'edges' you can modify the effect of the drop. If the drop area is at the edge of the
+	 * perspective stack a modified drop will place it *outside* the perspectives. If the drop area
+	 * is the shared area then a modified drop will drop *inside* the shared area.
+	 * 
+	 * @return Whether this is a 'modified' drop.
+	 */
+	private boolean getModified() {
+		if (!onEdge)
+			return false;
+		return dndManager.isModified;
+	}
+
+	/**
+	 * @return Whether the feedback should show an outer 'enclosing' rectangle or two separate
+	 *         rectangles.
+	 */
+	private boolean getEnclosed() {
+		if (onEdge) {
+			if (outerRelTo instanceof MPerspectiveStack)
+				return !getModified();
+			return getModified(); // 'Inner' drop
+		}
+
+		return true;
+	}
+
+	/**
 	 * @param curDockLocation2
 	 * @return
 	 */
-	private Rectangle getDockBounds(int location) {
-		if (!outerDock) {
+	private void showFeedback(int location) {
+		if (location == NOWHERE)
+			return;
+
+		Rectangle feedbackBounds = null;
+
+		if (!onEdge) {
 			Rectangle bounds = new Rectangle(ctfBounds.x, ctfBounds.y, ctfBounds.width,
 					ctfBounds.height);
-			dndManager.frameRect(ctfBounds);
-
-			if (location == EModelService.ABOVE) {
-				bounds.height /= 2;
-			} else if (location == EModelService.BELOW) {
-				bounds.height /= 2;
-				bounds.y += bounds.height;
-			} else if (location == EModelService.LEFT_OF) {
-				bounds.width /= 2;
-			} else if (location == EModelService.RIGHT_OF) {
-				bounds.width /= 2;
-				bounds.x += bounds.width;
-			}
-
-			bounds.x += 8;
-			bounds.y += 8;
-			bounds.width -= 16;
-			bounds.height -= 16;
-			dndManager.addFrame(bounds);
+			// bounds = Display.getCurrent().map(dropCTF.getParent(), null, bounds);
+			feedbackBounds = bounds;
 		} else {
 			Rectangle bounds = new Rectangle(ocBounds.x, ocBounds.y, ocBounds.width,
 					ocBounds.height);
-			int splitWidth = (int) (bounds.width * 0.34);
-			int splitHeight = (int) (bounds.height * 0.34);
-			if (location == EModelService.ABOVE) {
-				Rectangle topRect = new Rectangle(bounds.x, bounds.y, bounds.width, splitHeight);
-				Rectangle bottomRect = new Rectangle(bounds.x, bounds.y + splitHeight + 3,
-						bounds.width, bounds.height - splitHeight - 3);
-				dndManager.frameRect(topRect);
-				dndManager.frameRect(bottomRect);
-			} else if (location == EModelService.BELOW) {
-				Rectangle topRect = new Rectangle(bounds.x, bounds.y, bounds.width, bounds.height
-						- splitHeight);
-				Rectangle bottomRect = new Rectangle(bounds.x, bounds.y + bounds.height
-						- splitHeight + 8, bounds.width, splitHeight - 8);
-				dndManager.frameRect(topRect);
-				dndManager.addFrame(bottomRect);
-			} else if (location == EModelService.LEFT_OF) {
-				Rectangle leftRect = new Rectangle(bounds.x, bounds.y, splitWidth, bounds.height);
-				Rectangle rightRect = new Rectangle(bounds.x + splitWidth + 8, bounds.y,
-						bounds.width - splitWidth - 8, bounds.height);
-				dndManager.frameRect(leftRect);
-				dndManager.addFrame(rightRect);
-			} else if (location == EModelService.RIGHT_OF) {
-				Rectangle leftRect = new Rectangle(bounds.x, bounds.y, bounds.width - splitWidth,
-						bounds.height);
-				Rectangle rightRect = new Rectangle(bounds.x + bounds.width - splitWidth + 8,
-						bounds.y, splitWidth - 8, bounds.height);
-				dndManager.frameRect(leftRect);
-				dndManager.addFrame(rightRect);
-			}
+			feedbackBounds = bounds;
 		}
-		return null;
+
+		if (feedback != null)
+			feedback.dispose();
+		int side = 0;
+		if (location == EModelService.ABOVE) {
+			side = SWT.TOP;
+		} else if (location == EModelService.BELOW) {
+			side = SWT.BOTTOM;
+		} else if (location == EModelService.LEFT_OF) {
+			side = SWT.LEFT;
+		} else if (location == EModelService.RIGHT_OF) {
+			side = SWT.RIGHT;
+		}
+
+		float pct = (float) (onEdge ? 0.34 : 0.50);
+
+		clearFeedback();
+
+		feedback = new SplitFeedbackOverlay(dropCTF.getShell(), feedbackBounds, side, pct,
+				getEnclosed(), getModified());
+		feedback.setVisible(true);
+	}
+
+	private void clearFeedback() {
+		if (feedback == null)
+			return;
+
+		feedback.dispose();
+		feedback = null;
 	}
 
 	private int getDockLocation(DnDInfo info) {
 		if (outerRelTo != null) {
+			int outerThreshold = 50;
 			// Are we close to the 'outerBounds' ?
-			if (info.cursorPos.x - ocBounds.x < 30) {
-				outerDock = true;
-				return EModelService.LEFT_OF;
-			}
-			if ((ocBounds.x + ocBounds.width) - info.cursorPos.x < 30) {
-				outerDock = true;
-				return EModelService.RIGHT_OF;
-			}
-			if (info.cursorPos.y - ocBounds.y < 30) {
-				outerDock = true;
+			if (info.cursorPos.y - ocBounds.y < outerThreshold) {
+				onEdge = true;
 				return EModelService.ABOVE;
-			}
-			if ((ocBounds.y + ocBounds.height) - info.cursorPos.y < 30) {
-				outerDock = true;
+			} else if ((ocBounds.y + ocBounds.height) - info.cursorPos.y < outerThreshold) {
+				onEdge = true;
 				return EModelService.BELOW;
+			} else if (info.cursorPos.x - ocBounds.x < outerThreshold) {
+				onEdge = true;
+				return EModelService.LEFT_OF;
+			} else if ((ocBounds.x + ocBounds.width) - info.cursorPos.x < outerThreshold) {
+				onEdge = true;
+				return EModelService.RIGHT_OF;
 			}
 		}
 
-		outerDock = false;
+		onEdge = false;
 
 		int dx = info.cursorPos.x - clientBounds.x;
 		int dy = info.cursorPos.y - clientBounds.y;
@@ -302,6 +328,7 @@ public class SplitDropAgent extends DropAgent {
 
 	protected void unDock(MUIElement dragElement) {
 		dndManager.clearOverlay();
+		clearFeedback();
 		dndManager.setHostBounds(null);
 		dndManager.setDragHostVisibility(true);
 	}
@@ -311,12 +338,27 @@ public class SplitDropAgent extends DropAgent {
 		MPartSashContainerElement relTo = dropStack;
 		MPartStack toInsert;
 
-		if (outerDock) {
+		if (crossSharedAreaBoundary(dragElement, dropStack)) {
+			if (!dndManager.isModified) {
+				relTo = (MPartSashContainerElement) outerRelTo;
+			}
+		} else if (onEdge) {
 			relTo = (MPartSashContainerElement) outerRelTo;
+			if (outerRelTo instanceof MPerspectiveStack) {
+				if (!getModified())
+					relTo = (MPartSashContainerElement) ((MPerspectiveStack) outerRelTo)
+							.getSelectedElement().getChildren().get(0);
+			}
 		}
 
 		if (dragElement instanceof MPartStack) {
 			toInsert = (MPartStack) dragElement;
+
+			// Ensure we restore the stack to the presentation first
+			if (toInsert.getTags().contains(IPresentationEngine.MINIMIZED)) {
+				toInsert.getTags().remove(IPresentationEngine.MINIMIZED);
+			}
+
 			toInsert.getParent().getChildren().remove(toInsert);
 		} else {
 			// wrap it in a stack if it's a part
@@ -326,15 +368,22 @@ public class SplitDropAgent extends DropAgent {
 			toInsert.setSelectedElement(stackElement);
 		}
 
-		int ratio = outerDock ? 34 : 50; // an 'outer' dock should take less real estate
-		MUIElement relToParent = relTo.getParent();
-		dndManager.getModelService().insert(toInsert, relTo, where, ratio);
-
-		// Force the new sash to have the same weight as the original element
-		if (relTo.getParent() != relToParent && !outerDock)
-			relTo.getParent().setContainerData(weight);
-		dndManager.update();
+		float pct = (float) (onEdge ? 0.34 : 0.50);
+		dndManager.getModelService().insert(toInsert, relTo, where, pct);
 
 		return true;
+	}
+
+	/**
+	 * @param dragElement
+	 * @param dropStack2
+	 * @return
+	 */
+	private boolean crossSharedAreaBoundary(MUIElement dragElement, MPartStack dropStack) {
+		EModelService ms = dndManager.getModelService();
+		boolean deNotInSA = (ms.getElementLocation(dragElement) & EModelService.IN_SHARED_AREA) == 0;
+		boolean dsInSA = (ms.getElementLocation(dropStack) & EModelService.IN_SHARED_AREA) != 0;
+
+		return deNotInSA && dsInSA;
 	}
 }

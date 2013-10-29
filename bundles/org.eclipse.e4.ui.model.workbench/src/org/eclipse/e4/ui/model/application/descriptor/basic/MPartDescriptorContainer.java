@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2008 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,6 +17,13 @@ import java.util.List;
  * A representation of the model object '<em><b>Part Descriptor Container</b></em>'.
  * <!-- end-user-doc -->
  *
+ * <!-- begin-model-doc -->
+ * <p>
+ * A type specific collection of PartDescriptors.
+ * </p>
+ * @since 1.0
+ * <!-- end-model-doc -->
+ *
  * <p>
  * The following features are supported:
  * <ul>
@@ -32,11 +39,12 @@ public interface MPartDescriptorContainer {
 	 * Returns the value of the '<em><b>Descriptors</b></em>' containment reference list.
 	 * The list contents are of type {@link org.eclipse.e4.ui.model.application.descriptor.basic.MPartDescriptor}.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Descriptors</em>' containment reference list isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * A collection of PartDescriptors.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Descriptors</em>' containment reference list.
 	 * @model containment="true"
 	 * @generated

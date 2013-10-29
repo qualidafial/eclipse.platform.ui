@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,6 +17,7 @@ import java.util.Map;
 import org.eclipse.core.commands.common.NotDefinedException;
 import org.eclipse.core.commands.contexts.Context;
 import org.eclipse.core.commands.contexts.ContextManager;
+import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.core.di.annotations.Execute;
 import org.eclipse.e4.ui.model.application.MApplication;
 import org.eclipse.e4.ui.model.application.commands.MBindingContext;
@@ -32,9 +33,13 @@ public class ContextToModelProcessor {
 
 
 	@Execute
-	void process(MApplication application) {
+	void process(MApplication application, IEclipseContext context) {
 		gatherContexts(application.getRootContext());
-		ContextManager contextManager = new ContextManager();
+		ContextManager contextManager = context.get(ContextManager.class);
+		if (contextManager == null) {
+			contextManager = new ContextManager();
+			context.set(ContextManager.class, contextManager);
+		}
 		ContextPersistence cp = new ContextPersistence(contextManager);
 		cp.reRead();
 		generateContexts(application, contextManager);

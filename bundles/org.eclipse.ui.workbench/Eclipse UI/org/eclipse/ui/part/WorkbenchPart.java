@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -61,7 +61,7 @@ public abstract class WorkbenchPart extends EventManager implements
 
     private Image titleImage;
 
-    private String toolTip = ""; //$NON-NLS-1$
+	private String toolTip = null;
 
     private IConfigurationElement configElement;
 
@@ -398,7 +398,7 @@ public abstract class WorkbenchPart extends EventManager implements
         if (!Util.equals(description, "")) { //$NON-NLS-1$
             newTitle = MessageFormat
                     .format(
-                            WorkbenchMessages.WorkbenchPart_AutoTitleFormat, new String[] { name, description });
+                            WorkbenchMessages.WorkbenchPart_AutoTitleFormat, name, description);
         }
 
         setTitle(newTitle);

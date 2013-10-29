@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2009 Versant Corp and others.
+ * Copyright (c) 2008, 2012 Versant Corp and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -32,7 +32,10 @@ import org.eclipse.ui.views.properties.PropertySheet;
 public class NonRestorablePropertySheetTest extends TestCase {
 
 	public static TestSuite suite() {
-		return new TestSuite(NonRestorablePropertySheetTest.class);
+		TestSuite ts = new TestSuite("org.eclipse.ui.tests.session.NonRestorablePropertySheetTest");
+		ts.addTest(new NonRestorablePropertySheetTest("test01ActivateView"));
+		ts.addTest(new NonRestorablePropertySheetTest("test02SecondOpening"));
+		return ts;
 	}
 
 	public NonRestorablePropertySheetTest(String testName) {

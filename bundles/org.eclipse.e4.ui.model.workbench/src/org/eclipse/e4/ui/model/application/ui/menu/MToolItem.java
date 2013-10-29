@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2008 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,6 +14,13 @@ package org.eclipse.e4.ui.model.application.ui.menu;
  * <!-- begin-user-doc -->
  * A representation of the model object '<em><b>Tool Item</b></em>'.
  * <!-- end-user-doc -->
+ *
+ * <!-- begin-model-doc -->
+ * <p>
+ * This is the base type for both Direct and Handled tool items.
+ * </p>
+ * @since 1.0
+ * <!-- end-model-doc -->
  *
  * <p>
  * The following features are supported:
@@ -30,11 +37,13 @@ public interface MToolItem extends MItem, MToolBarElement {
 	/**
 	 * Returns the value of the '<em><b>Menu</b></em>' containment reference.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Menu</em>' reference isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * When set this represents the menu that appears when the 'drop down' arrow is
+	 * clicked on this tool item.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Menu</em>' containment reference.
 	 * @see #setMenu(MMenu)
 	 * @model containment="true"

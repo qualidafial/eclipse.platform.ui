@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,6 +13,8 @@ package org.eclipse.e4.ui.workbench.modeling;
 
 import java.util.List;
 import org.eclipse.e4.core.contexts.IEclipseContext;
+import org.eclipse.e4.ui.model.application.MApplicationElement;
+import org.eclipse.e4.ui.model.application.descriptor.basic.MPartDescriptor;
 import org.eclipse.e4.ui.model.application.ui.MElementContainer;
 import org.eclipse.e4.ui.model.application.ui.MSnippetContainer;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
@@ -25,7 +27,10 @@ import org.eclipse.e4.ui.model.application.ui.basic.MTrimmedWindow;
 import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
 
 /**
+ * This service is used to find, create and handle model elements
+ * 
  * @since 1.0
+ * @noimplement This interface is not intended to be implemented by clients.
  */
 public interface EModelService {
 	// Insertion constants
@@ -77,6 +82,66 @@ public interface EModelService {
 	 * perspective
 	 */
 	public static final int GLOBAL = OUTSIDE_PERSPECTIVE | IN_SHARED_AREA;
+
+	/**
+	 * Creates instances of model elements. Supported types are
+	 * <ul>
+	 * <li>{@link org.eclipse.e4.ui.model.application.MAddon MAddon}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.MApplication MApplication}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.advanced.MArea MArea}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.commands.MBindingContext MBindingContext}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.commands.MBindingTable MBindingTable}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.commands.MCategory MCategory}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.commands.MCommand MCommand}</li>
+	 * <li>
+	 * {@link org.eclipse.e4.ui.model.application.commands.MCommandParameter MCommandParameter}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.basic.MCompositePart MCompositePart}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.MCoreExpression MCoreExpression}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.menu.MDirectMenuItem MDirectMenuItem}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.menu.MDirectToolItem MDirectToolItem}</li>
+	 * <li>
+	 * {@link org.eclipse.e4.ui.model.application.ui.menu.MDynamicMenuContribution
+	 * MDynamicMenuContribution}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.menu.MHandledMenuItem MHandledMenuItem}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.menu.MHandledToolItem MHandledToolItem}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.commands.MHandler MHandler}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.basic.MInputPart MInputPart}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.commands.MKeyBinding MKeyBinding}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.menu.MMenu MMenu}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.menu.MMenuContribution MMenuContribution}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.menu.MMenuSeparator MMenuSeparator}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.commands.MParameter MParameter}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.basic.MPart MPart}</li>
+	 * <li>
+	 * {@link org.eclipse.e4.ui.model.application.descriptor.basic.MPartDescriptor MPartDescriptor}</li>
+	 * <li>
+	 * {@link org.eclipse.e4.ui.model.application.ui.basic.MPartSashContainer MPartSashContainer}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.basic.MPartStack MPartStack}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.advanced.MPerspective MPerspective}</li>
+	 * <li>
+	 * {@link org.eclipse.e4.ui.model.application.ui.advanced.MPerspectiveStack MPerspectiveStack}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.advanced.MPlaceholder MPlaceholder}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.menu.MPopupMenu MPopupMenu}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.menu.MToolBar MToolBar}</li>
+	 * <li>
+	 * {@link org.eclipse.e4.ui.model.application.ui.menu.MToolBarContribution MToolBarContribution}
+	 * </li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.menu.MToolBarSeparator MToolBarSeparator}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.menu.MToolControl MToolControl}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.basic.MTrimBar MTrimBar}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.menu.MTrimContribution MTrimContribution}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.basic.MTrimmedWindow MTrimmedWindow}</li>
+	 * <li>{@link org.eclipse.e4.ui.model.application.ui.basic.MWindow MWindow}</li>
+	 * </ul>
+	 * 
+	 * @param elementType
+	 *            the class to instantiate
+	 * @return a new instance or <code>null</code>
+	 * @throws IllegalArgumentException
+	 *             if the passed class is not supported.
+	 * @generated
+	 */
+	public <T extends MApplicationElement> T createModelElement(Class<T> elementType);
 
 	/**
 	 * Return a list of any elements that match the given search criteria. The search is recursive
@@ -313,7 +378,7 @@ public interface EModelService {
 	 *            The percentage of the area to be occupied by the inserted element
 	 */
 	public void insert(MPartSashContainerElement toInsert, MPartSashContainerElement relTo,
-			int where, int ratio);
+			int where, float ratio);
 
 	/**
 	 * Created a separate (detached) window containing the given element.
@@ -442,6 +507,23 @@ public interface EModelService {
 	 *         </ul>
 	 */
 	public int getElementLocation(MUIElement element);
+
+	/**
+	 * Returns the descriptor for the given part id.
+	 * <p>
+	 * <b>NOTE:</b> In order to support multiple instance parts there is a convention where the
+	 * part's id may be in the form 'partId:secondaryId'. If the given id contains a ':' then only
+	 * the substring before the ':' will be used to find the descriptor.
+	 * </p>
+	 * <p>
+	 * In order to support this convention it's required that no descriptor contain a ':' in its id
+	 * </p>
+	 * 
+	 * @param id
+	 *            The id of the descriptor to return
+	 * @return The descriptor matching the id or <code>null</code> if none exists
+	 */
+	public MPartDescriptor getPartDescriptor(String id);
 
 	/**
 	 * This method ensures that there will never be two placeholders for the same referenced element

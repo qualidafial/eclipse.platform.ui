@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2008 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,17 +24,7 @@ import org.eclipse.e4.ui.model.application.ui.MInput;
 import org.eclipse.e4.ui.model.application.ui.MSnippetContainer;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.application.ui.MUILabel;
-import org.eclipse.e4.ui.model.application.ui.basic.MInputPart;
-import org.eclipse.e4.ui.model.application.ui.basic.MPart;
-import org.eclipse.e4.ui.model.application.ui.basic.MPartSashContainer;
-import org.eclipse.e4.ui.model.application.ui.basic.MPartSashContainerElement;
-import org.eclipse.e4.ui.model.application.ui.basic.MPartStack;
-import org.eclipse.e4.ui.model.application.ui.basic.MStackElement;
-import org.eclipse.e4.ui.model.application.ui.basic.MTrimBar;
-import org.eclipse.e4.ui.model.application.ui.basic.MTrimElement;
-import org.eclipse.e4.ui.model.application.ui.basic.MTrimmedWindow;
-import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
-import org.eclipse.e4.ui.model.application.ui.basic.MWindowElement;
+import org.eclipse.e4.ui.model.application.ui.basic.*;
 import org.eclipse.e4.ui.model.application.ui.basic.impl.BasicPackageImpl;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
@@ -111,6 +101,27 @@ public class BasicSwitch<T1> extends Switch<T1> {
 				if (result == null) result = caseWindowElement(part);
 				if (result == null) result = caseUIElement(part);
 				if (result == null) result = caseApplicationElement(part);
+				if (result == null) result = defaultCase(theEObject);
+				return result;
+			}
+			case BasicPackageImpl.COMPOSITE_PART: {
+				MCompositePart compositePart = (MCompositePart)theEObject;
+				T1 result = caseCompositePart(compositePart);
+				if (result == null) result = casePart(compositePart);
+				if (result == null) result = casePartSashContainer(compositePart);
+				if (result == null) result = casePartSashContainerElement(compositePart);
+				if (result == null) result = caseStackElement(compositePart);
+				if (result == null) result = caseContribution(compositePart);
+				if (result == null) result = caseContext(compositePart);
+				if (result == null) result = caseUILabel(compositePart);
+				if (result == null) result = caseHandlerContainer(compositePart);
+				if (result == null) result = caseDirtyable(compositePart);
+				if (result == null) result = caseBindings(compositePart);
+				if (result == null) result = caseWindowElement(compositePart);
+				if (result == null) result = caseGenericTile(compositePart);
+				if (result == null) result = caseApplicationElement(compositePart);
+				if (result == null) result = caseElementContainer(compositePart);
+				if (result == null) result = caseUIElement(compositePart);
 				if (result == null) result = defaultCase(theEObject);
 				return result;
 			}
@@ -244,6 +255,21 @@ public class BasicSwitch<T1> extends Switch<T1> {
 	 * @generated
 	 */
 	public T1 casePart(MPart object) {
+		return null;
+	}
+
+	/**
+	 * Returns the result of interpreting the object as an instance of '<em>Composite Part</em>'.
+	 * <!-- begin-user-doc -->
+	 * This implementation returns null;
+	 * returning a non-null result will terminate the switch.
+	 * <!-- end-user-doc -->
+	 * @param object the target of the switch.
+	 * @return the result of interpreting the object as an instance of '<em>Composite Part</em>'.
+	 * @see #doSwitch(org.eclipse.emf.ecore.EObject) doSwitch(EObject)
+	 * @generated
+	 */
+	public T1 caseCompositePart(MCompositePart object) {
 		return null;
 	}
 

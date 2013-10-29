@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2009 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,7 +13,6 @@ package org.eclipse.e4.ui.css.core.impl.dom;
 
 import org.w3c.css.sac.LexicalUnit;
 import org.w3c.dom.DOMException;
-import org.w3c.dom.css.CSSValue;
 
 public class Measure extends CSSValueImpl {
 	
@@ -92,6 +91,8 @@ public class Measure extends CSSValueImpl {
 			return CSS_DIMENSION;
 		case LexicalUnit.SAC_OPERATOR_COMMA:
 			return CSS_CUSTOM;  //TODO don't think this is right, see bug #278139
+		case LexicalUnit.SAC_INHERIT:
+			return CSS_INHERIT;
 		}
 		// TODO Auto-generated method stub
 		throw new UnsupportedOperationException("NOT YET IMPLEMENTED - LexicalUnit type: " + value.getLexicalUnitType());
@@ -114,12 +115,18 @@ public class Measure extends CSSValueImpl {
 		case LexicalUnit.SAC_PIXEL:
 		case LexicalUnit.SAC_CENTIMETER:
 		case LexicalUnit.SAC_EM:
+		case LexicalUnit.SAC_EX:
+		case LexicalUnit.SAC_PICA:
+		case LexicalUnit.SAC_POINT:
 		case LexicalUnit.SAC_INCH:
+		case LexicalUnit.SAC_DEGREE:
 			return String.valueOf(value.getFloatValue()) + value.getDimensionUnitText();
 		case LexicalUnit.SAC_URI:
 			return "url(" + value.getStringValue() + ")";
 		case LexicalUnit.SAC_OPERATOR_COMMA:
 			return ",";
+		case LexicalUnit.SAC_INHERIT:
+			return "inherit";
 		}
 		return value.getStringValue();
 	}

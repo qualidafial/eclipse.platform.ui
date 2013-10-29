@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2009 Angelo Zerr and others.
+ * Copyright (c) 2008, 2013 Angelo Zerr and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,7 +13,6 @@ package org.eclipse.e4.ui.css.core.impl.dom;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.eclipse.e4.ui.css.core.dom.ExtendedCSSRule;
 import org.eclipse.e4.ui.css.core.impl.sac.ExtendedSelector;
 import org.w3c.css.sac.Selector;
@@ -70,8 +69,7 @@ public class ViewCSSImpl implements ViewCSS {
 		return null;
 	}
 
-	public CSSStyleDeclaration getComputedStyle(CSSStyleSheet styleSheet,
-			Element elt, String pseudoElt) {
+	public CSSStyleDeclaration getComputedStyle(CSSStyleSheet styleSheet, Element elt, String pseudoElt) {
 		List styleDeclarations = null;
 		StyleWrapper firstStyleDeclaration = null;
 		CSSRuleList ruleList = styleSheet.getCssRules();
@@ -79,8 +77,7 @@ public class ViewCSSImpl implements ViewCSS {
 		int position = 0;
 		for (int i = 0; i < length; i++) {
 			CSSRule rule = ruleList.item(i);
-			switch (rule.getType()) {
-			case CSSRule.STYLE_RULE: {
+			if (rule.getType() == CSSRule.STYLE_RULE) {
 				CSSStyleRule styleRule = (CSSStyleRule) rule;
 				if (rule instanceof ExtendedCSSRule) {
 					ExtendedCSSRule r = (ExtendedCSSRule) rule;
@@ -105,8 +102,7 @@ public class ViewCSSImpl implements ViewCSS {
 									// match the current element
 									if (styleDeclarations == null) {
 										styleDeclarations = new ArrayList();
-										styleDeclarations
-												.add(firstStyleDeclaration);
+										styleDeclarations.add(firstStyleDeclaration);
 									}
 									styleDeclarations.add(wrapper);
 								}
@@ -120,7 +116,6 @@ public class ViewCSSImpl implements ViewCSS {
 					// TODO : CSS rule is not ExtendedCSSRule,
 					// Manage this case...
 				}
-			}
 			}
 		}
 		if (styleDeclarations != null) {

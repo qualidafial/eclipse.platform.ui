@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2013 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.e4.ui.bindings.tests;
 
 import java.util.ArrayList;
@@ -128,7 +138,7 @@ public class BindingTableTests extends TestCase {
 		BindingTable table = loadTable(ID_WINDOW);
 		Binding paste = getTestBinding(PASTE_ID);
 		ParameterizedCommand pasteCmd = paste.getParameterizedCommand();
-		KeySequence ctrlV = KeySequence.getInstance("CTRL+V");
+		KeySequence ctrlV = KeySequence.getInstance("M1+V");
 		KeySequence shiftIns = KeySequence.getInstance("Shift+Insert");
 		Binding match1 = table.getPerfectMatch(ctrlV);
 		assertEquals(pasteCmd, match1.getParameterizedCommand());
@@ -162,7 +172,6 @@ public class BindingTableTests extends TestCase {
 
 	public void testPartialMatch() throws Exception {
 		BindingTable table = loadTable(ID_DIALOG_AND_WINDOW);
-		Binding about = getTestBinding(ABOUT_ID);
 		KeySequence ctrl5 = KeySequence.getInstance("CTRL+5");
 		KeySequence ctrl8 = KeySequence.getInstance("CTRL+8");
 		assertTrue(table.isPartialMatch(ctrl5));

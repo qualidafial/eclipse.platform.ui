@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006 IBM Corporation and others.
+ * Copyright (c) 2006, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -43,7 +43,7 @@ public class IWorkbenchPartTestableTests extends UITestCase {
 	 * Iterate over all parts to ensure that they all return a part testable
 	 * that contains a real composite.
 	 */
-	public void testGetComposite() throws CoreException {
+	public void XXXtestGetComposite() throws CoreException {
 		IWorkbenchPage page = openTestWindow(IDE.RESOURCE_PERSPECTIVE_ID)
 				.getActivePage();
 		assertNotNull(page);

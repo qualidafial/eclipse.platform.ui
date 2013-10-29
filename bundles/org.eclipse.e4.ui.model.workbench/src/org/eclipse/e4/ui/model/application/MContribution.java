@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2008 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,19 +10,25 @@
  */
 package org.eclipse.e4.ui.model.application;
 
-import java.util.Map;
 
 /**
  * <!-- begin-user-doc -->
  * A representation of the model object '<em><b>Contribution</b></em>'.
  * <!-- end-user-doc -->
  *
+ * <!-- begin-model-doc -->
+ * <p>
+ * MContribution is a mix-in class used by concrete elements such as Parts to define
+ * the location of the client supplied class implementing the specific logic needed.
+ * </p>
+ * @since 1.0
+ * <!-- end-model-doc -->
+ *
  * <p>
  * The following features are supported:
  * <ul>
  *   <li>{@link org.eclipse.e4.ui.model.application.MContribution#getContributionURI <em>Contribution URI</em>}</li>
  *   <li>{@link org.eclipse.e4.ui.model.application.MContribution#getObject <em>Object</em>}</li>
- *   <li>{@link org.eclipse.e4.ui.model.application.MContribution#getPersistedState <em>Persisted State</em>}</li>
  * </ul>
  * </p>
  *
@@ -33,11 +39,14 @@ public interface MContribution extends MApplicationElement {
 	/**
 	 * Returns the value of the '<em><b>Contribution URI</b></em>' attribute.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Contribution URI</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * The ContributionURI defines the complete path to a class implementing the logic
+	 * for elements require external code to handle the UI such as MParts and MHandlers.
+	 * </p>
+	 * @since 1.0
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Contribution URI</em>' attribute.
 	 * @see #setContributionURI(String)
 	 * @model
@@ -58,11 +67,13 @@ public interface MContribution extends MApplicationElement {
 	/**
 	 * Returns the value of the '<em><b>Object</b></em>' attribute.
 	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Object</em>' attribute isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
 	 * <!-- end-user-doc -->
+	 * <!-- begin-model-doc -->
+	 * <p>
+	 * This is the DI created instance of the class implementing the logic for the element.
+	 * It will only be non-null if the element has been rendered into the presentation.
+	 * </p>
+	 * <!-- end-model-doc -->
 	 * @return the value of the '<em>Object</em>' attribute.
 	 * @see #setObject(Object)
 	 * @model transient="true" derived="true"
@@ -79,21 +90,5 @@ public interface MContribution extends MApplicationElement {
 	 * @generated
 	 */
 	void setObject(Object value);
-
-	/**
-	 * Returns the value of the '<em><b>Persisted State</b></em>' map.
-	 * The key is of type {@link java.lang.String},
-	 * and the value is of type {@link java.lang.String},
-	 * <!-- begin-user-doc -->
-	 * <p>
-	 * If the meaning of the '<em>Persisted State</em>' map isn't clear,
-	 * there really should be more of a description here...
-	 * </p>
-	 * <!-- end-user-doc -->
-	 * @return the value of the '<em>Persisted State</em>' map.
-	 * @model mapType="org.eclipse.e4.ui.model.application.StringToStringMap<org.eclipse.emf.ecore.EString, org.eclipse.emf.ecore.EString>"
-	 * @generated
-	 */
-	Map<String, String> getPersistedState();
 
 } // MContribution

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2006 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,8 @@
 package org.eclipse.ui.tests.adaptable;
 
 import java.io.ByteArrayInputStream;
+
+import junit.framework.TestSuite;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
@@ -47,6 +49,14 @@ public class AdaptableDecoratorTestCase extends UITestCase implements
 
 	protected IFile testFile;
 
+	public static TestSuite suite() {
+		TestSuite ts = new TestSuite();
+		ts.addTest(new AdaptableDecoratorTestCase("testEnableDecorator"));
+		ts.addTest(new AdaptableDecoratorTestCase("testDisableDecorator"));
+		ts.addTest(new AdaptableDecoratorTestCase("testRefreshFullContributor"));
+		ts.addTest(new AdaptableDecoratorTestCase("testRefreshLightContributor"));
+		return ts;
+	}
 	/**
 	 * Constructor for DecoratorTestCase.
 	 * 

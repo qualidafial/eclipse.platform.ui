@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2010-2011 Adobe Systems, Inc. and others.
+ * Copyright (c) 2008, 2013 Adobe Systems, Inc. and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -36,8 +36,6 @@ import org.eclipse.e4.core.services.statusreporter.StatusReporter;
 import org.eclipse.e4.ui.bindings.EBindingService;
 import org.eclipse.e4.ui.model.application.MApplication;
 import org.eclipse.e4.ui.model.application.commands.MCommand;
-import org.eclipse.e4.ui.model.application.commands.MHandler;
-import org.eclipse.e4.ui.model.application.commands.impl.CommandsFactoryImpl;
 import org.eclipse.e4.ui.model.application.ui.MContext;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.application.ui.basic.MTrimBar;
@@ -54,8 +52,6 @@ import org.eclipse.e4.ui.workbench.IPresentationEngine;
 import org.eclipse.e4.ui.workbench.UIEvents;
 import org.eclipse.e4.ui.workbench.modeling.EModelService;
 import org.eclipse.e4.ui.workbench.renderers.swt.HandledMenuItemRenderer;
-import org.eclipse.jface.bindings.Binding;
-import org.eclipse.jface.bindings.TriggerSequence;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
@@ -80,12 +76,11 @@ import org.osgi.service.event.EventHandler;
  * org.eclipse.ui.cocoa's CocoaUIEnhancer for native e4 apps. This class
  * redirects the standard MacOS X "About", "Preferences...", and "Quit" menu
  * items to link them to the corresponding workbench commands, as well as
- * hooking in Close-Dialog behaviour.
+ * hooking in Close-Dialog behavior.
  * 
  * This functionality uses Cocoa-specific natives as SWT doesn't provide an
  * abstraction for the application menu.
  * 
- * @noreference this class is not intended to be referenced by any client.
  * @since 1.0
  */
 public class CocoaUIHandler {
@@ -96,9 +91,6 @@ public class CocoaUIHandler {
 	private static final String COMMAND_ID_QUIT = "org.eclipse.ui.file.exit"; //$NON-NLS-1$
 	// toggle coolbar isn't actually defined anywhere
 	private static final String COMMAND_ID_TOGGLE_COOLBAR = "org.eclipse.ui.ToggleCoolbarAction"; //$NON-NLS-1$
-
-	private static final String COMMAND_ID_CLOSE_DIALOG = "org.eclipse.ui.cocoa.closeDialog"; //$NON-NLS-1$
-	private static final String CLOSE_DIALOG_KEYSEQUENCE = "M1+W"; //$NON-NLS-1$
 
 	static long sel_toolbarButtonClicked_;
 	private static final long NSWindowToolbarButton = 3;
@@ -136,6 +128,7 @@ public class CocoaUIHandler {
 	private EventHandler menuListener;
 	private EventHandler menuContributionListener;
 	private EventHandler commandListener;
+	private EventHandler tagListener;
 
 	/**
 	 * 
@@ -170,7 +163,7 @@ public class CocoaUIHandler {
 		// call getAddress
 		Method getAddress = Callback.class
 				.getMethod("getAddress", new Class[0]); //$NON-NLS-1$
-		Object object = getAddress.invoke(proc3Args, null);
+		Object object = getAddress.invoke(proc3Args);
 		long proc3 = convertToLong(object);
 		if (proc3 == 0)
 			SWT.error(SWT.ERROR_NO_MORE_CALLBACKS);
@@ -218,11 +211,6 @@ public class CocoaUIHandler {
 				hookApplicationMenu();
 				hookWorkbenchListeners();
 				processModelMenus();
-
-				// Now add the special Cmd-W dialog helper
-				addCloseDialogCommand();
-				addCloseDialogHandler();
-				addCloseDialogBinding();
 
 				// modify all shells opened on startup
 				for (MWindow window : app.getChildren()) {
@@ -305,6 +293,9 @@ public class CocoaUIHandler {
 		if (commandListener != null) {
 			eventBroker.unsubscribe(commandListener);
 		}
+		if (tagListener != null) {
+			eventBroker.unsubscribe(tagListener);
+		}
 	}
 
 	/**
@@ -332,42 +323,6 @@ public class CocoaUIHandler {
 		}
 	}
 
-	private void addCloseDialogCommand() {
-		closeDialogCommand = findCommand(COMMAND_ID_CLOSE_DIALOG);
-		if (closeDialogCommand != null) {
-			return;
-		}
-		closeDialogCommand = CommandsFactoryImpl.eINSTANCE.createCommand();
-		closeDialogCommand.setElementId(COMMAND_ID_CLOSE_DIALOG);
-		closeDialogCommand.setCommandName("%command.closeDialog.name"); //$NON-NLS-1$
-		closeDialogCommand.setDescription("%command.closeDialog.desc"); //$NON-NLS-1$
-		closeDialogCommand.setContributorURI(CocoaUIProcessor.CONTRIBUTOR_URI);
-		app.getCommands().add(closeDialogCommand);
-	}
-
-	private void addCloseDialogHandler() {
-		MHandler handler = findHandler(closeDialogCommand);
-		if (handler != null) {
-			return;
-		}
-		handler = CommandsFactoryImpl.eINSTANCE.createHandler();
-		handler.setCommand(closeDialogCommand);
-		handler.setContributionURI(CocoaUIProcessor.CONTRIBUTION_URI_PREFIX
-				+ "/" + CloseDialogHandler.class.getName());//$NON-NLS-1$
-		app.getHandlers().add(handler);
-	}
-
-	private void addCloseDialogBinding() {
-		TriggerSequence sequence = bindingService
-				.createSequence(CLOSE_DIALOG_KEYSEQUENCE);
-		ParameterizedCommand cmd = commandService.createCommand(
-				COMMAND_ID_CLOSE_DIALOG, null);
-		Binding binding = bindingService.createBinding(sequence, cmd,
-				EBindingService.DIALOG_CONTEXT_ID, null);
-		bindingService.deactivateBinding(binding);
-		bindingService.activateBinding(binding);
-	}
-
 	void log(Exception e) {
 		// StatusUtil.handleStatus(e, StatusManager.LOG);
 		statusReporter
@@ -390,6 +345,7 @@ public class CocoaUIHandler {
 					MWindow window = (MWindow) event
 							.getProperty(UIEvents.EventTags.ELEMENT);
 					modifyWindowShell(window);
+					updateFullScreenStatus(window);
 				}
 			}
 		};
@@ -448,6 +404,28 @@ public class CocoaUIHandler {
 		eventBroker.subscribe(UIEvents.Application.TOPIC_COMMANDS,
 				commandListener);
 
+		// watch for a window's full-screen tag being flipped
+		tagListener = new EventHandler() {
+			public void handleEvent(org.osgi.service.event.Event event) {
+				if (event.getProperty(UIEvents.EventTags.ELEMENT) instanceof MWindow) {
+					MWindow window = (MWindow) event
+							.getProperty(UIEvents.EventTags.ELEMENT);
+					updateFullScreenStatus(window);
+				}
+			}
+		};
+		eventBroker.subscribe(UIEvents.ApplicationElement.TOPIC_TAGS,
+				tagListener);
+	}
+
+	/**
+	 * @param window
+	 */
+	protected void updateFullScreenStatus(MWindow window) {
+		// toggle full-screen is only available since MacOS X 10.7
+		if (OS.VERSION < 0x1070 || !(window.getWidget() instanceof Shell)) {
+			return;
+		}
 	}
 
 	/**
@@ -468,6 +446,10 @@ public class CocoaUIHandler {
 		}
 		redirectHandledMenuItems(window.getMainMenu());
 
+		// the toolbar button is not available since MacOS X 10.7
+		if (OS.VERSION >= 0x1070) {
+			return;
+		}
 		// only add the button when either the cool bar or perspective bar
 		// is initially visible. This is so that RCP applications can choose to
 		// use this fragment without fear that their explicitly invisible bars
@@ -603,40 +585,6 @@ public class CocoaUIHandler {
 		for (MenuItem mi : menu.getItems()) {
 			if (mi.getID() == menuItemId) {
 				return mi;
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * Find the command definition
-	 * 
-	 * @param commandId
-	 * @return the command definition or null if not found
-	 */
-	private MCommand findCommand(String commandId) {
-		for (MCommand cmd : app.getCommands()) {
-			if (commandId.equals(cmd.getElementId())) {
-				return cmd;
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * Find a handler defined for the provided command. This command returns on
-	 * the first command found.
-	 * 
-	 * @param cmd
-	 * @return the first handler found, or <code>null</code> if none
-	 */
-	private MHandler findHandler(MCommand cmd) {
-		if (cmd == null) {
-			return null;
-		}
-		for (MHandler handler : app.getHandlers()) {
-			if (handler.getCommand() == cmd) {
-				return handler;
 			}
 		}
 		return null;

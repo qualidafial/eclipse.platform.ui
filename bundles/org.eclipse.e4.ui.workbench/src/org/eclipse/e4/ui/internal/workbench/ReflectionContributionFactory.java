@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2009, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,7 +16,6 @@ import java.util.Map;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExtensionRegistry;
-import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.InvalidRegistryObjectException;
 import org.eclipse.e4.core.contexts.ContextInjectionFactory;
 import org.eclipse.e4.core.contexts.IEclipseContext;
@@ -58,6 +57,13 @@ public class ReflectionContributionFactory implements IContributionFactory {
 		if (uriString == null) {
 			return null;
 		}
+		// translate old-style platform:/plugin/ class specifiers into new-style bundleclass:// URIs
+		if (uriString.startsWith("platform:/plugin/")) { //$NON-NLS-1$
+			Activator.log(LogService.LOG_ERROR,
+					"platform-style URIs deprecated for referencing types: " + uriString); //$NON-NLS-1$
+			uriString = uriString.replace("platform:/plugin/", "bundleclass://"); //$NON-NLS-1$ //$NON-NLS-2$
+			Activator.log(LogService.LOG_ERROR, "URI rewritten as: " + uriString); //$NON-NLS-1$
+		}
 		URI uri = URI.createURI(uriString);
 		Bundle bundle = getBundle(uri);
 		Object contribution;
@@ -77,6 +83,11 @@ public class ReflectionContributionFactory implements IContributionFactory {
 		if (uri.segmentCount() > 1) {
 			String prefix = uri.segment(0);
 			IContributionFactorySpi factory = (IContributionFactorySpi) languages.get(prefix);
+			if (factory == null) {
+				String message = "Unsupported contribution factory type '" + prefix + "'"; //$NON-NLS-1$ //$NON-NLS-2$
+				Activator.log(LogService.LOG_ERROR, message);
+				return null;
+			}
 			StringBuffer resource = new StringBuffer(uri.segment(1));
 			for (int i = 2; i < uri.segmentCount(); i++) {
 				resource.append('/');
@@ -134,7 +145,7 @@ public class ReflectionContributionFactory implements IContributionFactory {
 
 	protected Bundle getBundle(URI platformURI) {
 		if (platformURI.authority() == null) {
-			Activator.log(IStatus.ERROR, "Failed to get bundle for: " + platformURI); //$NON-NLS-1$
+			Activator.log(LogService.LOG_ERROR, "Failed to get bundle for: " + platformURI); //$NON-NLS-1$
 			return null;
 		}
 		return Activator.getDefault().getBundleForName(platformURI.authority());

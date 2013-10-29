@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2011 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,11 +11,14 @@
 
 package org.eclipse.ui.internal.handlers;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import org.eclipse.core.commands.Command;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
@@ -35,26 +38,27 @@ import org.eclipse.core.runtime.IExtensionPoint;
 import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.e4.core.commands.ECommandService;
 import org.eclipse.e4.core.commands.EHandlerService;
+import org.eclipse.e4.core.commands.ExpressionContext;
+import org.eclipse.e4.core.commands.internal.HandlerServiceHandler;
 import org.eclipse.e4.core.commands.internal.HandlerServiceImpl;
 import org.eclipse.e4.core.contexts.ContextFunction;
 import org.eclipse.e4.core.contexts.EclipseContextFactory;
 import org.eclipse.e4.core.contexts.IEclipseContext;
+import org.eclipse.e4.core.di.InjectionException;
 import org.eclipse.e4.ui.internal.workbench.Activator;
 import org.eclipse.e4.ui.internal.workbench.Policy;
-import org.eclipse.e4.ui.workbench.modeling.ExpressionContext;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.ui.ISourceProvider;
 import org.eclipse.ui.ISources;
-import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.handlers.IHandlerActivation;
 import org.eclipse.ui.handlers.IHandlerService;
-import org.eclipse.ui.internal.MakeHandlersGo;
 import org.eclipse.ui.internal.WorkbenchPlugin;
 import org.eclipse.ui.internal.e4.compatibility.E4Util;
 import org.eclipse.ui.internal.expressions.AndExpression;
 import org.eclipse.ui.internal.expressions.WorkbenchWindowExpression;
 import org.eclipse.ui.internal.registry.IWorkbenchRegistryConstants;
+import org.eclipse.ui.internal.services.EvaluationService;
 import org.eclipse.ui.services.IEvaluationService;
 import org.eclipse.ui.services.ISourceProviderService;
 
@@ -83,7 +87,7 @@ public class LegacyHandlerService implements IHandlerService {
 		}
 
 		@Override
-		public Object compute(IEclipseContext context) {
+		public Object compute(IEclipseContext context, String contextKey) {
 
 			HashSet<HandlerActivation> activationSet = new HashSet<HandlerActivation>();
 			IEclipseContext current = context;
@@ -104,6 +108,8 @@ public class LegacyHandlerService implements IHandlerService {
 
 			ExpressionContext legacyEvalContext = new ExpressionContext(context);
 
+			HandlerActivation conflictBest = null;
+			HandlerActivation conflictOther = null;
 			for (HandlerActivation handlerActivation : activationSet) {
 				if (!handlerActivation.participating)
 					continue;
@@ -114,102 +120,50 @@ public class LegacyHandlerService implements IHandlerService {
 						int comparison = bestActivation.compareTo(handlerActivation);
 						if (comparison < 0) {
 							bestActivation = handlerActivation;
+						} else if (comparison == 0) {
+							conflictBest = bestActivation;
+							conflictOther = handlerActivation;
 						}
 					}
 				}
 			}
 
 			if (bestActivation != null) {
+				if (bestActivation == conflictBest) {
+					WorkbenchPlugin.log("Conflicting handlers for " + commandId + ": {" //$NON-NLS-1$ //$NON-NLS-2$
+							+ conflictBest.getHandler() + "} vs {" //$NON-NLS-1$
+							+ conflictOther.getHandler() + "}"); //$NON-NLS-1$
+				}
 				return bestActivation.proxy;
 			}
 
-			// "super call"
-			IEclipseContext parent = context.getParent();
-			if (parent == null) {
-				return null;
-			}
-			return parent.get(HandlerServiceImpl.H_ID + commandId);
+			return null;
 		}
 	}
 
 	private static IHandlerActivation systemHandlerActivation;
 
-	/*
-	 * We are obligated to return a non-null IHandlerActivation from our
-	 * activate calls. It is only used as a token, but must not return null from
-	 * certain methods. This token represents passing the MakeHandlerGo handler
-	 * back into the system.
-	 */
-	private static IHandlerActivation getSystemHandlerActivation(IEclipseContext context, final String cmdId) {
-		if (systemHandlerActivation == null) {
-			final IWorkbench wb = context.get(IWorkbench.class);
 
-			systemHandlerActivation = new IHandlerActivation() {
-
-				public int compareTo(Object o) {
-					return -1;
-				}
-
-				public void setResult(boolean result) {
-				}
-
-				public int getSourcePriority() {
-					return 0;
-				}
-
-				public Expression getExpression() {
-					return null;
-				}
-
-				public boolean evaluate(IEvaluationContext context) {
-					return false;
-				}
-
-				public void clearResult() {
-				}
-
-				public boolean isActive(IEvaluationContext context) {
-					return false;
-				}
-
-				public IHandlerService getHandlerService() {
-					return (IHandlerService) wb.getService(IHandlerService.class);
-				}
-
-				public IHandler getHandler() {
-					return null;
-				}
-
-				public int getDepth() {
-					return 0;
-				}
-
-				public String getCommandId() {
-					return cmdId;
-				}
-
-				public void clearActive() {
-				}
-			};
-		}
-		return systemHandlerActivation;
-	}
 
 	public static IHandlerActivation registerLegacyHandler(final IEclipseContext context,
 			String id, final String cmdId, IHandler handler, Expression activeWhen) {
-		if (handler instanceof MakeHandlersGo) {
-			final String msg = "Invalid Handler MakeHandlerGo"; //$NON-NLS-1$
-			WorkbenchPlugin.log(msg, new Exception(msg));
-			return getSystemHandlerActivation(context, cmdId);
-		}
+
 		ECommandService cs = (ECommandService) context.get(ECommandService.class.getName());
 		Command command = cs.getCommand(cmdId);
+		boolean handled = command.isHandled();
+		boolean enabled = command.isEnabled();
 		E4HandlerProxy handlerProxy = new E4HandlerProxy(command, handler);
 		HandlerActivation activation = new HandlerActivation(context, cmdId, handler, handlerProxy,
 				activeWhen);
 		addHandlerActivation(activation);
 		EHandlerService hs = context.get(EHandlerService.class);
 		hs.activateHandler(cmdId, new HandlerSelectionFunction(cmdId));
+		boolean handledChanged = handled != command.isHandled();
+		boolean enabledChanged = enabled != command.isEnabled();
+		if (handledChanged || enabledChanged) {
+			// IHandler proxy = command.getHandler();
+			// TODO do we need to fire a handler changed event?
+		}
 		return activation;
 	}
 
@@ -219,6 +173,9 @@ public class LegacyHandlerService implements IHandlerService {
 		if (handlerActivations == null) {
 			handlerActivations = new ArrayList();
 		} else {
+			if (handlerActivations.contains(eActivation)) {
+				return;
+			}
 			handlerActivations = new ArrayList(handlerActivations);
 		}
 		handlerActivations.add(eActivation);
@@ -460,7 +417,23 @@ public class LegacyHandlerService implements IHandlerService {
 			staticContext.set(Event.class, event);
 		}
 		try {
-			return hs.executeHandler(command, staticContext);
+			final Object rc = hs.executeHandler(command, staticContext);
+			final Object obj = staticContext.get(HandlerServiceImpl.HANDLER_EXCEPTION);
+			if (obj instanceof ExecutionException) {
+				throw (ExecutionException) obj;
+			} else if (obj instanceof NotDefinedException) {
+				throw (NotDefinedException) obj;
+			} else if (obj instanceof NotEnabledException) {
+				throw (NotEnabledException) obj;
+			} else if (obj instanceof NotHandledException) {
+				throw (NotHandledException) obj;
+			} else if (obj instanceof Exception) {
+				WorkbenchPlugin.log((Exception) obj);
+			}
+			return rc;
+		} catch (InjectionException e) {
+			rethrow(e);
+			throw e;
 		} finally {
 			staticContext.dispose();
 		}
@@ -477,27 +450,124 @@ public class LegacyHandlerService implements IHandlerService {
 	public Object executeCommandInContext(ParameterizedCommand command, Event event,
 			IEvaluationContext context) throws ExecutionException, NotDefinedException,
 			NotEnabledException, NotHandledException {
+
+		IHandler handler = command.getCommand().getHandler();
+		boolean enabled = handler.isEnabled();
 		IEclipseContext staticContext = null;
-		boolean disposeContext = false;
+		Object defaultVar = null;
 		if (context instanceof ExpressionContext) {
 			// create a child context so that the primary context doesn't get
 			// populated by parameters by the EHS
 			staticContext = ((ExpressionContext) context).eclipseContext.createChild();
 		} else {
-			staticContext = EclipseContextFactory.create();
-			disposeContext = true;
+			staticContext = eclipseContext.getActiveLeaf().createChild("snapshotContext"); //$NON-NLS-1$
 			if (event != null) {
 				staticContext.set(Event.class, event);
 			}
 			staticContext.set(IEvaluationContext.class, context);
-		}
-		EHandlerService hs = eclipseContext.get(EHandlerService.class);
-		try {
-			return hs.executeHandler(command, staticContext);
-		} finally {
-			if (disposeContext) {
-				staticContext.dispose();
+			defaultVar = context.getDefaultVariable();
+			if (defaultVar != null && defaultVar != IEvaluationContext.UNDEFINED_VARIABLE) {
+				staticContext.set(EvaluationService.DEFAULT_VAR, defaultVar);
 			}
+		}
+		IEclipseContext lookupContext = staticContext;
+		// the IEvaluationContext snapshot is not part of our runtime
+		// IEclipseContext hierarchy. In order to work. we need the variables
+		// from the snapshot available in the static context.
+		populateSnapshot(context, staticContext);
+		EHandlerService hs = lookupContext.get(EHandlerService.class);
+		try {
+			final Object rc = hs.executeHandler(command, staticContext);
+			final Object obj = staticContext.get(HandlerServiceImpl.HANDLER_EXCEPTION);
+			if (obj instanceof ExecutionException) {
+				throw (ExecutionException) obj;
+			} else if (obj instanceof NotDefinedException) {
+				throw (NotDefinedException) obj;
+			} else if (obj instanceof NotEnabledException) {
+				throw (NotEnabledException) obj;
+			} else if (obj instanceof NotHandledException) {
+				throw (NotHandledException) obj;
+			} else if (obj instanceof Exception) {
+				WorkbenchPlugin.log((Exception) obj);
+			}
+			return rc;
+		} catch (InjectionException e) {
+			rethrow(e);
+			throw e;
+		} finally {
+			if (handler.isEnabled() != enabled && handler instanceof HandlerServiceHandler) {
+				((HandlerServiceHandler) handler).overrideEnabled(enabled);
+			}
+			staticContext.dispose();
+		}
+	}
+
+	/**
+	 * @param context
+	 * @param staticContext
+	 */
+	private void populateSnapshot(IEvaluationContext context, IEclipseContext staticContext) {
+		IEvaluationContext ctxPtr = context;
+		while (ctxPtr != null && !(ctxPtr instanceof ExpressionContext)) {
+			Map vars = getVariables(ctxPtr);
+			if (vars != null) {
+				Iterator i = vars.entrySet().iterator();
+				while (i.hasNext()) {
+					Map.Entry entry = (Map.Entry) i.next();
+					if (staticContext.getLocal(entry.getKey().toString()) == null) {
+						staticContext.set(entry.getKey().toString(), entry.getValue());
+					}
+				}
+			}
+			ctxPtr = ctxPtr.getParent();
+		}
+	}
+
+	private Map getVariables(IEvaluationContext ctx) {
+		Field vars = getContextVariablesField();
+		if (vars != null) {
+			try {
+				return (Map) vars.get(ctx);
+			} catch (IllegalArgumentException e) {
+
+			} catch (IllegalAccessException e) {
+
+			}
+		}
+		return null;
+	}
+
+	private static Field contextFVariables = null;
+
+	private static Field getContextVariablesField() {
+		if (contextFVariables == null) {
+			try {
+				contextFVariables = EvaluationContext.class.getField("fVariables"); //$NON-NLS-1$
+				contextFVariables.setAccessible(true);
+			} catch (SecurityException e) {
+
+			} catch (NoSuchFieldException e) {
+
+			}
+		}
+		return contextFVariables;
+	}
+
+	/**
+	 * Checks the cause of the provided exception and rethrows the cause instead
+	 * if it was one of the expected exception types.
+	 */
+	private void rethrow(InjectionException e) throws ExecutionException, NotDefinedException,
+			NotEnabledException, NotHandledException {
+		Throwable cause = e.getCause();
+		if (cause instanceof ExecutionException) {
+			throw (ExecutionException) cause;
+		} else if (cause instanceof NotDefinedException) {
+			throw (NotDefinedException) cause;
+		} else if (cause instanceof NotEnabledException) {
+			throw (NotEnabledException) cause;
+		} else if (cause instanceof NotHandledException) {
+			throw (NotHandledException) cause;
 		}
 	}
 

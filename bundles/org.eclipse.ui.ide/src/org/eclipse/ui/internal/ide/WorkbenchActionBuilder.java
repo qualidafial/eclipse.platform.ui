@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -202,6 +202,8 @@ public final class WorkbenchActionBuilder extends ActionBarAdvisor {
 	private CommandContributionItem minimizeItem;
 	
 	private CommandContributionItem zoomItem;
+
+	private CommandContributionItem fullscreenItem;
 
 	private CommandContributionItem arrangeWindowsItem;
 	
@@ -647,8 +649,8 @@ public final class WorkbenchActionBuilder extends ActionBarAdvisor {
 
 		windowMenu.add(minimizeItem);
 		windowMenu.add(zoomItem);
+		windowMenu.add(fullscreenItem);
 		windowMenu.add(new Separator());
-
 	}
 
 	/**
@@ -875,13 +877,17 @@ public final class WorkbenchActionBuilder extends ActionBarAdvisor {
         showInQuickMenu = null;
         newQuickMenu = null;
         buildProjectAction = null;
-        newWizardMenu = null;
+        if (newWizardMenu != null) {
+            newWizardMenu.dispose();
+            newWizardMenu = null;
+        }
         statusLineItem = null;
         prefListener = null;
         propPrefListener = null;
         introAction = null;
         minimizeItem = null;
         zoomItem = null;
+		fullscreenItem = null;
         arrangeWindowsItem = null;
 		super.dispose();
     }
@@ -1164,6 +1170,9 @@ public final class WorkbenchActionBuilder extends ActionBarAdvisor {
 			CommandContributionItemParameter zoomParam = new CommandContributionItemParameter(window, null,
 					"org.eclipse.ui.cocoa.zoomWindow", CommandContributionItem.STYLE_PUSH); //$NON-NLS-1$
 			zoomItem = new CommandContributionItem(zoomParam);
+			CommandContributionItemParameter fullscreenParam = new CommandContributionItemParameter(
+					window, null, "org.eclipse.ui.cocoa.fullscreenWindow", CommandContributionItem.STYLE_PUSH); //$NON-NLS-1$
+			fullscreenItem = new CommandContributionItem(fullscreenParam);
 			CommandContributionItemParameter arrangeWindowsParam = new CommandContributionItemParameter(window, null,
 					"org.eclipse.ui.cocoa.arrangeWindowsInFront", CommandContributionItem.STYLE_PUSH); //$NON-NLS-1$
 			arrangeWindowsItem = new CommandContributionItem(arrangeWindowsParam);

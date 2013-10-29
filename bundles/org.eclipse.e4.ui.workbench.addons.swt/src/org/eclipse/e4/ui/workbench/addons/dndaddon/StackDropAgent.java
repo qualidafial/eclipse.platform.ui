@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2011 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,9 +17,10 @@ import org.eclipse.e4.ui.internal.workbench.swt.AbstractPartRenderer;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.application.ui.basic.MPartStack;
 import org.eclipse.e4.ui.model.application.ui.basic.MStackElement;
-import org.eclipse.e4.ui.widgets.CTabFolder;
-import org.eclipse.e4.ui.widgets.CTabItem;
+import org.eclipse.e4.ui.workbench.IPresentationEngine;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabFolder;
+import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
@@ -53,6 +54,9 @@ public class StackDropAgent extends DropAgent {
 			return false;
 
 		MPartStack stack = (MPartStack) info.curElement;
+
+		if (stack.getTags().contains(IPresentationEngine.STANDALONE))
+			return false;
 
 		// We only work for CTabFolders
 		if (!(stack.getWidget() instanceof CTabFolder))
@@ -215,7 +219,7 @@ public class StackDropAgent extends DropAgent {
 			for (CTabItem cti : dropCTF.getItems()) {
 				if (dragCtrl == cti.getControl()) {
 					int itemIndex = dropCTF.indexOf(cti);
-					if (dropIndex > 0 && itemIndex <= dropIndex)
+					if (dropIndex > 0 && itemIndex < dropIndex)
 						dropIndex--;
 				}
 			}
@@ -223,7 +227,8 @@ public class StackDropAgent extends DropAgent {
 
 		// 'dropIndex' is now the index of the CTabItem to put ourselves before
 		// we need to adjust this to be a model index
-		if (dropIndex < dropCTF.getItemCount()) {
+		int ctfItemCount = dropCTF.getItemCount();
+		if (dropIndex < ctfItemCount) {
 			CTabItem item = dropCTF.getItem(dropIndex);
 			MUIElement itemModel = (MUIElement) item.getData(AbstractPartRenderer.OWNING_ME);
 
@@ -232,6 +237,11 @@ public class StackDropAgent extends DropAgent {
 				return;
 
 			dropIndex = itemModel.getParent().getChildren().indexOf(itemModel);
+			// if the item is dropped at the last position, there is
+			// no existing item to put ourselves before
+			// so we'll just go to the end.
+		} else if (dropIndex == ctfItemCount) {
+			dropIndex = dropStack.getChildren().size();
 		}
 
 		if (dragElement instanceof MStackElement) {
@@ -249,13 +259,33 @@ public class StackDropAgent extends DropAgent {
 			MPartStack stack = (MPartStack) dragElement;
 			MStackElement curSel = stack.getSelectedElement();
 			List<MStackElement> kids = stack.getChildren();
-			while (kids.size() > 0) {
-				MStackElement lastChild = kids.remove(kids.size() - 1);
+			
+			// First move over all *non-selected* elements
+			int selIndex = kids.indexOf(curSel);
+			boolean curSelProcessed = false;
+			while (kids.size() > 1) {
+				// Offset the 'get' to account for skipping 'curSel'
+				MStackElement kid = curSelProcessed ? kids.get(kids.size() - 2) : kids.get(kids
+						.size() - 1);
+				if (kid == curSel) {
+					curSelProcessed = true;
+					continue;
+				}
+
+				kids.remove(kid);
 				if (dropIndex >= 0 && dropIndex < dropStack.getChildren().size())
-					dropStack.getChildren().add(dropIndex, lastChild);
+					dropStack.getChildren().add(dropIndex, kid);
 				else
-					dropStack.getChildren().add(lastChild);
+					dropStack.getChildren().add(kid);
 			}
+
+			// Finally, move over the selected element
+			kids.remove(curSel);
+			dropIndex = dropIndex + selIndex;
+			if (dropIndex >= 0 && dropIndex < dropStack.getChildren().size())
+				dropStack.getChildren().add(dropIndex, curSel);
+			else
+				dropStack.getChildren().add(curSel);
 
 			// (Re)active the element being dropped
 			dropStack.setSelectedElement(curSel);
@@ -288,8 +318,12 @@ public class StackDropAgent extends DropAgent {
 	public boolean drop(MUIElement dragElement, DnDInfo info) {
 		if (dndManager.getFeedbackStyle() != DnDManager.HOSTED) {
 			int dropIndex = getDropIndex(info);
-			if (dropIndex != -1)
+			if (dropIndex != -1) {
+				MUIElement toActivate = dragElement instanceof MPartStack ? ((MPartStack) dragElement)
+						.getSelectedElement() : dragElement;
 				dock(dragElement, dropIndex);
+				reactivatePart(toActivate);
+			}
 		}
 		return true;
 	}

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2011 IBM Corporation and others.
+ * Copyright (c) 2004, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,6 +13,7 @@ package org.eclipse.ui.tests.session;
 import java.util.List;
 
 import junit.framework.TestCase;
+import junit.framework.TestSuite;
 
 import org.eclipse.e4.ui.model.application.ui.MElementContainer;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
@@ -39,6 +40,14 @@ import org.eclipse.ui.internal.ViewSite;
  * 
  */
 public class Bug108033Test extends TestCase {
+	
+	public static TestSuite suite() {
+		TestSuite ts = new TestSuite("org.eclipse.ui.tests.session.Bug108033Test");
+		ts.addTest(new Bug108033Test("testShowMultipleViews"));
+		ts.addTest(new Bug108033Test("testCheckMultipleViews"));
+		ts.addTest(new Bug108033Test("testMovedMultipleViews"));
+		return ts;
+	}
 
 	public static final String PROBLEM_VIEW_ID = "org.eclipse.ui.views.ProblemView";
 

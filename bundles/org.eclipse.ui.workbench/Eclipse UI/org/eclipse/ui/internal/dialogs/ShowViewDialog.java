@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2008 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,8 +15,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.dialogs.IDialogConstants;
+import org.eclipse.jface.dialogs.IDialogLabelKeys;
 import org.eclipse.jface.dialogs.IDialogSettings;
 import org.eclipse.jface.dialogs.PopupDialog;
+import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.viewers.DoubleClickEvent;
 import org.eclipse.jface.viewers.IDoubleClickListener;
 import org.eclipse.jface.viewers.ISelectionChangedListener;
@@ -142,9 +144,9 @@ public class ShowViewDialog extends Dialog implements
      */
     protected void createButtonsForButtonBar(Composite parent) {
         okButton = createButton(parent, IDialogConstants.OK_ID,
-                IDialogConstants.OK_LABEL, true);
+				JFaceResources.getString(IDialogLabelKeys.OK_LABEL_KEY), true);
         createButton(parent, IDialogConstants.CANCEL_ID,
-                IDialogConstants.CANCEL_LABEL, false);
+				JFaceResources.getString(IDialogLabelKeys.CANCEL_LABEL_KEY), false);
         updateButtons();
     }
 
@@ -213,6 +215,7 @@ public class ShowViewDialog extends Dialog implements
 		PatternFilter filter = new ViewPatternFilter();
 		int styleBits = SWT.MULTI | SWT.H_SCROLL | SWT.V_SCROLL | SWT.BORDER;
 		filteredTree = new FilteredTree(parent, styleBits, filter, true);
+		filteredTree.setQuickSelectionMode(true);
 		filteredTree.setBackground(parent.getDisplay().getSystemColor(
 				SWT.COLOR_WIDGET_BACKGROUND));
 		
@@ -326,34 +329,37 @@ public class ShowViewDialog extends Dialog implements
      * held last time this dialog was used to completion.
      */
     protected void restoreWidgetValues() {
-        IDialogSettings settings = getDialogSettings();
+		Object selection = null;
 
+        IDialogSettings settings = getDialogSettings();
         String[] expandedCategoryIds = settings
                 .getArray(STORE_EXPANDED_CATEGORIES_ID);
-        if (expandedCategoryIds == null) {
-			return;
-		}
+		if (expandedCategoryIds != null) {
+			ViewRegistry reg = (ViewRegistry) viewReg;
+			ArrayList categoriesToExpand = new ArrayList(expandedCategoryIds.length);
+			for (int i = 0; i < expandedCategoryIds.length; i++) {
+				IViewCategory category = reg.findCategory(expandedCategoryIds[i]);
+				if (category != null) {
+					categoriesToExpand.add(category);
+				}
+			}
 
-        ViewRegistry reg = (ViewRegistry) viewReg;
-        ArrayList categoriesToExpand = new ArrayList(expandedCategoryIds.length);
-        for (int i = 0; i < expandedCategoryIds.length; i++) {
-            IViewCategory category = reg.findCategory(expandedCategoryIds[i]);
-            if (category != null) {
-				categoriesToExpand.add(category);
+			if (!categoriesToExpand.isEmpty()) {
+				filteredTree.getViewer().setExpandedElements(categoriesToExpand.toArray());
+			}
+
+			String selectedViewId = settings.get(STORE_SELECTED_VIEW_ID);
+			if (selectedViewId != null) {
+				selection = reg.find(selectedViewId);
 			}
         }
 
-        if (!categoriesToExpand.isEmpty()) {
-			filteredTree.getViewer().setExpandedElements(categoriesToExpand.toArray());
-		}
-        
-        String selectedViewId = settings.get(STORE_SELECTED_VIEW_ID);
-        if (selectedViewId != null) {
-            IViewDescriptor viewDesc = reg.find(selectedViewId);
-            if (viewDesc != null) {
-                filteredTree.getViewer().setSelection(new StructuredSelection(viewDesc), true);
-            }
-        }
+		// Make sure there's a selection in the tree
+		if (selection == null)
+			selection = filteredTree.getViewer().getTree().getItem(0).getData();
+
+		filteredTree.getViewer().setSelection(new StructuredSelection(selection), true);
+
     }
 
     /**
@@ -413,14 +419,13 @@ public class ShowViewDialog extends Dialog implements
             Object o = i.next();
             if (o instanceof IViewDescriptor) {
                 descs.add(o);
-            }
-        }
-        
-        viewDescs = new IViewDescriptor[descs.size()];
-        descs.toArray(viewDescs);
+			}
+		}
+		viewDescs = new IViewDescriptor[descs.size()];
+		descs.toArray(viewDescs);
     }
 
-    
+
 	/* (non-Javadoc)
      * @see org.eclipse.jface.window.Dialog#getDialogBoundsSettings()
      * 

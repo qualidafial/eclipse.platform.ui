@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2008 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -156,7 +156,8 @@ public class ToolBarContributionItem extends ContributionItem implements IToolBa
      * 
      * @see org.eclipse.jface.action.IContributionItem#dispose()
      */
-    public void dispose() {
+    @Override
+	public void dispose() {
         // Dispose of the ToolBar and all its contributions
         if (toolBarManager != null) {
             toolBarManager.dispose();
@@ -182,7 +183,8 @@ public class ToolBarContributionItem extends ContributionItem implements IToolBa
      * @see org.eclipse.jface.action.IContributionItem#fill(org.eclipse.swt.widgets.CoolBar,
      *      int)
      */
-    public void fill(CoolBar coolBar, int index) {
+    @Override
+	public void fill(CoolBar coolBar, int index) {
         if (checkDisposed()) {
             return;
         }
@@ -231,7 +233,8 @@ public class ToolBarContributionItem extends ContributionItem implements IToolBa
                 // Chevron Support
                 coolItem.addSelectionListener(new SelectionAdapter() {
 
-                    public void widgetSelected(SelectionEvent event) {
+                    @Override
+					public void widgetSelected(SelectionEvent event) {
                         if (event.detail == SWT.ARROW) {
                             handleChevron(event);
                         }
@@ -354,7 +357,7 @@ public class ToolBarContributionItem extends ContributionItem implements IToolBa
         ToolBar toolBar = (ToolBar) control;
         Rectangle toolBarBounds = toolBar.getBounds();
         ToolItem[] items = toolBar.getItems();
-        ArrayList hidden = new ArrayList();
+        ArrayList<ToolItem> hidden = new ArrayList<ToolItem>();
         for (int i = 0; i < items.length; ++i) {
             Rectangle itemBounds = items[i].getBounds();
             if (!((itemBounds.x + itemBounds.width <= toolBarBounds.width) && (itemBounds.y
@@ -368,8 +371,8 @@ public class ToolBarContributionItem extends ContributionItem implements IToolBa
             chevronMenuManager.dispose();
         }
         chevronMenuManager = new MenuManager();
-        for (Iterator i = hidden.iterator(); i.hasNext();) {
-            ToolItem toolItem = (ToolItem) i.next();
+        for (Iterator<ToolItem> i = hidden.iterator(); i.hasNext();) {
+            ToolItem toolItem = i.next();
             IContributionItem data = (IContributionItem) toolItem.getData();
             if (data instanceof ActionContributionItem) {
                 ActionContributionItem contribution = new ActionContributionItem(
@@ -443,7 +446,8 @@ public class ToolBarContributionItem extends ContributionItem implements IToolBa
      *         other than group marks and separators, and the internal state is
      *         set to be visible.
      */
-    public boolean isVisible() {
+    @Override
+	public boolean isVisible() {
         if (checkDisposed()) {
             return false;
         }
@@ -469,7 +473,8 @@ public class ToolBarContributionItem extends ContributionItem implements IToolBa
      * 
      * @see org.eclipse.jface.action.IContributionItem#saveWidgetState()
      */
-    public void saveWidgetState() {
+    @Override
+	public void saveWidgetState() {
         if (checkDisposed()) {
             return;
         }
@@ -580,7 +585,8 @@ public class ToolBarContributionItem extends ContributionItem implements IToolBa
      * 
      * @see org.eclipse.jface.action.IContributionItem#update(java.lang.String)
      */
-    public void update(String propertyName) {
+    @Override
+	public void update(String propertyName) {
         if (checkDisposed()) {
             return;
         }

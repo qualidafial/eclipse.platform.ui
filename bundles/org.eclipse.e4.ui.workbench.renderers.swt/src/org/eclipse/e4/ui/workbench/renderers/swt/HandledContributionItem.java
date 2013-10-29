@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2012 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,9 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Joseph Carroll <jdsalingerjr@gmail.com> - Bug 385414 Contributing wizards to toolbar always displays icon and text
+ *     Snjezana Peco <snjezana.peco@redhat.com> - Memory leaks in Juno when opening and closing XML Editor - http://bugs.eclipse.org/397909
+ *     Marco Descher <marco@descher.at> - Bug 397677
  ******************************************************************************/
 package org.eclipse.e4.ui.workbench.renderers.swt;
 
@@ -20,6 +23,7 @@ import org.eclipse.core.commands.ParameterizedCommand;
 import org.eclipse.core.commands.State;
 import org.eclipse.core.commands.common.NotDefinedException;
 import org.eclipse.core.runtime.ISafeRunnable;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.SafeRunner;
 import org.eclipse.e4.core.commands.ECommandService;
 import org.eclipse.e4.core.commands.EHandlerService;
@@ -32,11 +36,11 @@ import org.eclipse.e4.ui.bindings.EBindingService;
 import org.eclipse.e4.ui.internal.workbench.Activator;
 import org.eclipse.e4.ui.internal.workbench.ContributionsAnalyzer;
 import org.eclipse.e4.ui.internal.workbench.Policy;
+import org.eclipse.e4.ui.internal.workbench.renderers.swt.IUpdateService;
 import org.eclipse.e4.ui.internal.workbench.swt.AbstractPartRenderer;
 import org.eclipse.e4.ui.model.application.commands.MParameter;
 import org.eclipse.e4.ui.model.application.ui.MContext;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
-import org.eclipse.e4.ui.model.application.ui.MUILabel;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.e4.ui.model.application.ui.menu.ItemType;
 import org.eclipse.e4.ui.model.application.ui.menu.MHandledItem;
@@ -64,10 +68,12 @@ import org.eclipse.jface.resource.LocalResourceManager;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.DisposeEvent;
 import org.eclipse.swt.events.DisposeListener;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Item;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
@@ -76,6 +82,21 @@ import org.eclipse.swt.widgets.ToolItem;
 import org.eclipse.swt.widgets.Widget;
 
 public class HandledContributionItem extends ContributionItem {
+	/**
+	 * Constant from org.eclipse.ui.handlers.RadioState.PARAMETER_ID
+	 */
+	private static final String ORG_ECLIPSE_UI_COMMANDS_RADIO_STATE_PARAMETER = "org.eclipse.ui.commands.radioStateParameter"; //$NON-NLS-1$
+
+	/**
+	 * Constant from org.eclipse.ui.handlers.RadioState.STATE_ID
+	 */
+	private static final String ORG_ECLIPSE_UI_COMMANDS_RADIO_STATE = "org.eclipse.ui.commands.radioState"; //$NON-NLS-1$
+
+	/**
+	 * Constant from org.eclipse.ui.handlers.RegistryToggleState.STATE_ID
+	 */
+	private static final String ORG_ECLIPSE_UI_COMMANDS_TOGGLE_STATE = "org.eclipse.ui.commands.toggleState"; //$NON-NLS-1$
+
 	static class RunnableRunner implements ISafeRunnable {
 		private Runnable runnable;
 
@@ -99,6 +120,7 @@ public class HandledContributionItem extends ContributionItem {
 
 		List<HandledContributionItem> itemsToCheck = new ArrayList<HandledContributionItem>();
 		List<Runnable> windowRunnables = new ArrayList<Runnable>();
+		final List<HandledContributionItem> orphanedToolItems = new ArrayList<HandledContributionItem>();
 
 		public void addWindowRunnable(Runnable r) {
 			windowRunnables.add(r);
@@ -123,15 +145,27 @@ public class HandledContributionItem extends ContributionItem {
 		}
 
 		public void run() {
-			for (HandledContributionItem hci : itemsToCheck) {
-				hci.updateItemEnablement();
+
+			for (final HandledContributionItem hci : itemsToCheck) {
+				// HACK. Remove orphaned entries. See bug 388516.
+				if (hci.model != null && hci.model.getParent() != null) {
+					hci.updateItemEnablement();
+				} else {
+					orphanedToolItems.add(hci);
+				}
+			}
+			if (!orphanedToolItems.isEmpty()) {
+				itemsToCheck.removeAll(orphanedToolItems);
+				orphanedToolItems.clear();
 			}
 
-			Runnable[] array = new Runnable[windowRunnables.size()];
-			windowRunnables.toArray(array);
-			for (Runnable r : array) {
-				runner.setRunnable(r);
-				SafeRunner.run(runner);
+			if (windowRunnables.size() > 0) {
+				Runnable[] array = new Runnable[windowRunnables.size()];
+				windowRunnables.toArray(array);
+				for (Runnable r : array) {
+					runner.setRunnable(r);
+					SafeRunner.run(runner);
+				}
 			}
 
 			// repeat until the list goes empty
@@ -143,6 +177,9 @@ public class HandledContributionItem extends ContributionItem {
 	// HACK!! local 'static' timerExec...should move out of this class post 4.1
 	public static ToolItemUpdateTimer toolItemUpdater = new ToolItemUpdateTimer();
 
+	private static final String FORCE_TEXT = "FORCE_TEXT"; //$NON-NLS-1$
+	private static final String ICON_URI = "iconURI"; //$NON-NLS-1$
+	private static final String DISABLED_URI = "disabledURI"; //$NON-NLS-1$
 	private static final String DISPOSABLE_CHECK = "IDisposable"; //$NON-NLS-1$
 	private static final String WW_SUPPORT = "org.eclipse.ui.IWorkbenchWindow"; //$NON-NLS-1$
 	private static final String HCI_STATIC_CONTEXT = "HCI-staticContext"; //$NON-NLS-1$
@@ -168,11 +205,17 @@ public class HandledContributionItem extends ContributionItem {
 	@Inject
 	private EBindingService bindingService;
 
+	@Inject
+	@Optional
+	private IUpdateService updateService;
+
+	private Runnable unreferenceRunnable;
+
 	private ISWTResourceUtilities resUtils = null;
 
 	private IStateListener stateListener = new IStateListener() {
 		public void handleStateChange(State state, Object oldValue) {
-			model.setSelected(((Boolean) state.getValue()).booleanValue());
+			updateState();
 		}
 	};
 
@@ -185,8 +228,11 @@ public class HandledContributionItem extends ContributionItem {
 		if (updateRunner == null) {
 			updateRunner = new ISafeRunnable() {
 				public void run() throws Exception {
-					model.setEnabled(canExecuteItem(null));
-					update();
+					boolean shouldEnable = canExecuteItem(null);
+					if (shouldEnable != model.isEnabled()) {
+						model.setEnabled(shouldEnable);
+						update();
+					}
 				}
 
 				public void handleException(Throwable exception) {
@@ -225,10 +271,21 @@ public class HandledContributionItem extends ContributionItem {
 
 	private IEclipseContext infoContext;
 
+	private State styleState;
+
+	private State toggleState;
+
+	private State radioState;
+
 	public void setModel(MHandledItem item) {
 		model = item;
 		setId(model.getElementId());
 		generateCommand();
+		if (model.getCommand() == null) {
+			if (logger != null) {
+				logger.error("Element " + model.getElementId() + " invalid, no command defined."); //$NON-NLS-1$ //$NON-NLS-2$
+			}
+		}
 		updateVisible();
 	}
 
@@ -236,42 +293,53 @@ public class HandledContributionItem extends ContributionItem {
 	 * 
 	 */
 	private void generateCommand() {
-		if (model.getCommand() == null) {
-			return;
-		}
-		if (model.getWbCommand() == null) {
+		if (model.getCommand() != null && model.getWbCommand() == null) {
 			String cmdId = model.getCommand().getElementId();
-			final List<MParameter> modelParms = model.getParameters();
-			if (modelParms.isEmpty()) {
-				final ParameterizedCommand parmCmd = commandService
-						.createCommand(cmdId, null);
-				Activator
-						.trace(Policy.DEBUG_MENUS, "command: " + parmCmd, null); //$NON-NLS-1$
-				model.setWbCommand(parmCmd);
-
-				State state = parmCmd.getCommand()
-						.getState(IMenuStateIds.STYLE);
-				if (state != null) {
-					state.addListener(stateListener);
-					model.setSelected(((Boolean) state.getValue())
-							.booleanValue());
-				}
+			List<MParameter> modelParms = model.getParameters();
+			Map<String, String> parameters = new HashMap<String, String>(4);
+			for (MParameter mParm : modelParms) {
+				parameters.put(mParm.getName(), mParm.getValue());
+			}
+			ParameterizedCommand parmCmd = commandService.createCommand(cmdId,
+					parameters);
+			Activator.trace(Policy.DEBUG_MENUS, "command: " + parmCmd, null); //$NON-NLS-1$
+			if (parmCmd == null) {
+				Activator.log(IStatus.ERROR,
+						"Unable to generate parameterized command for " + model //$NON-NLS-1$
+								+ " with " + parameters); //$NON-NLS-1$
 				return;
 			}
-			HashMap<String, String> parms = new HashMap<String, String>();
-			for (MParameter parm : modelParms) {
-				parms.put(parm.getName(), parm.getValue());
-			}
-			final ParameterizedCommand parmCmd = commandService.createCommand(
-					cmdId, parms);
-			Activator.trace(Policy.DEBUG_MENUS, "command: " + parmCmd, null); //$NON-NLS-1$
+
 			model.setWbCommand(parmCmd);
 
-			State state = parmCmd.getCommand().getState(IMenuStateIds.STYLE);
-			if (state != null) {
-				state.addListener(stateListener);
-				model.setSelected(((Boolean) state.getValue()).booleanValue());
+			styleState = parmCmd.getCommand().getState(IMenuStateIds.STYLE);
+			toggleState = parmCmd.getCommand().getState(
+					ORG_ECLIPSE_UI_COMMANDS_TOGGLE_STATE);
+			radioState = parmCmd.getCommand().getState(
+					ORG_ECLIPSE_UI_COMMANDS_RADIO_STATE);
+			updateState();
+
+			if (styleState != null) {
+				styleState.addListener(stateListener);
+			} else if (toggleState != null) {
+				toggleState.addListener(stateListener);
+			} else if (radioState != null) {
+				radioState.addListener(stateListener);
 			}
+		}
+	}
+
+	private void updateState() {
+		if (styleState != null) {
+			model.setSelected(((Boolean) styleState.getValue()).booleanValue());
+		} else if (toggleState != null) {
+			model.setSelected(((Boolean) toggleState.getValue()).booleanValue());
+		} else if (radioState != null && model.getWbCommand() != null) {
+			ParameterizedCommand c = model.getWbCommand();
+			Object parameter = c.getParameterMap().get(
+					ORG_ECLIPSE_UI_COMMANDS_RADIO_STATE_PARAMETER);
+			String value = (String) radioState.getValue();
+			model.setSelected(value != null && value.equals(parameter));
 		}
 	}
 
@@ -314,7 +382,11 @@ public class HandledContributionItem extends ContributionItem {
 		widget.setData(AbstractPartRenderer.OWNING_ME, model);
 
 		update(null);
-		updateIcons();
+
+		if (updateService != null) {
+			unreferenceRunnable = updateService.registerElementForUpdate(
+					model.getWbCommand(), model);
+		}
 	}
 
 	/*
@@ -362,8 +434,12 @@ public class HandledContributionItem extends ContributionItem {
 		toolItemUpdater.registerItem(this);
 
 		update(null);
-		updateIcons();
 		hookCheckListener();
+
+		if (updateService != null) {
+			unreferenceRunnable = updateService.registerElementForUpdate(
+					model.getWbCommand(), model);
+		}
 	}
 
 	private void hookCheckListener() {
@@ -378,7 +454,7 @@ public class HandledContributionItem extends ContributionItem {
 			staticContext.set(WW_SUPPORT, context.get(WW_SUPPORT));
 
 			IContextFunction func = (IContextFunction) obj;
-			obj = func.compute(staticContext);
+			obj = func.compute(staticContext, null);
 			if (obj != null) {
 				model.getTransientData().put(DISPOSABLE_CHECK, obj);
 			}
@@ -421,6 +497,7 @@ public class HandledContributionItem extends ContributionItem {
 	 */
 	@Override
 	public void update(String id) {
+		updateIcons();
 		if (widget instanceof MenuItem) {
 			updateMenuItem();
 		} else if (widget instanceof ToolItem) {
@@ -473,101 +550,95 @@ public class HandledContributionItem extends ContributionItem {
 	private void updateToolItem() {
 		ToolItem item = (ToolItem) widget;
 		final String text = model.getLocalizedLabel();
-		if (text != null) {
+		Image icon = item.getImage();
+		boolean mode = model.getTags().contains(FORCE_TEXT);
+		if ((icon == null || mode) && text != null) {
 			item.setText(text);
 		} else {
 			item.setText(""); //$NON-NLS-1$
 		}
-		final String tooltip = getToolTipText(model);
+		final String tooltip = getToolTipText();
 		item.setToolTipText(tooltip);
 		item.setSelection(model.isSelected());
 		item.setEnabled(model.isEnabled());
 	}
 
-	private String getToolTipText(MItem item) {
-		String text = item.getLocalizedTooltip();
-		if (item instanceof MHandledItem) {
-			MHandledItem handledItem = (MHandledItem) item;
-			IEclipseContext context = getContext(item);
-			EBindingService bs = (EBindingService) context
-					.get(EBindingService.class.getName());
-			if (bs != null) {
-				ParameterizedCommand cmd = handledItem.getWbCommand();
-				if (cmd == null) {
-					cmd = generateParameterizedCommand(handledItem, context);
-				}
-				TriggerSequence sequence = bs.getBestSequenceFor(handledItem
-						.getWbCommand());
-				if (sequence != null) {
-					if (text == null) {
-						try {
-							text = cmd.getName();
-						} catch (NotDefinedException e) {
-							return null;
-						}
-					}
-					text = text + " (" + sequence.format() + ')'; //$NON-NLS-1$
-				}
+	private String getToolTipText() {
+		String text = model.getLocalizedTooltip();
+		ParameterizedCommand parmCmd = model.getWbCommand();
+		if (parmCmd == null) {
+			generateCommand();
+			parmCmd = model.getWbCommand();
+		}
+
+		if (parmCmd != null && text == null) {
+			try {
+				text = parmCmd.getName();
+			} catch (NotDefinedException e) {
+				return null;
 			}
-			return text;
+		}
+
+		TriggerSequence sequence = bindingService.getBestSequenceFor(parmCmd);
+		if (sequence != null) {
+			text = text + " (" + sequence.format() + ')'; //$NON-NLS-1$
 		}
 		return text;
 	}
 
-	private ParameterizedCommand generateParameterizedCommand(
-			final MHandledItem item, final IEclipseContext lclContext) {
-		ECommandService cmdService = (ECommandService) lclContext
-				.get(ECommandService.class.getName());
-		Map<String, Object> parameters = null;
-		List<MParameter> modelParms = item.getParameters();
-		if (modelParms != null && !modelParms.isEmpty()) {
-			parameters = new HashMap<String, Object>();
-			for (MParameter mParm : modelParms) {
-				parameters.put(mParm.getName(), mParm.getValue());
-			}
+	private void updateIcons() {
+		if (!(widget instanceof Item)) {
+			return;
 		}
-		ParameterizedCommand cmd = cmdService.createCommand(item.getCommand()
-				.getElementId(), parameters);
-		item.setWbCommand(cmd);
-		return cmd;
+		Item item = (Item) widget;
+		String iconURI = model.getIconURI() != null ? model.getIconURI() : ""; //$NON-NLS-1$
+		String disabledURI = getDisabledIconURI(model);
+		Object disabledData = item.getData(DISABLED_URI);
+		if (disabledData == null)
+			disabledData = ""; //$NON-NLS-1$
+		if (!iconURI.equals(item.getData(ICON_URI))
+				|| !disabledURI.equals(disabledData)) {
+			LocalResourceManager resourceManager = new LocalResourceManager(
+					JFaceResources.getResources());
+			Image iconImage = getImage(iconURI, resourceManager);
+			item.setImage(iconImage);
+			item.setData(ICON_URI, iconURI);
+			if (item instanceof ToolItem) {
+				iconImage = getImage(disabledURI, resourceManager);
+				((ToolItem) item).setDisabledImage(iconImage);
+				item.setData(DISABLED_URI, disabledURI);
+			}
+			disposeOldImages();
+			localResourceManager = resourceManager;
+		}
 	}
 
-	private void updateIcons() {
-		if (widget instanceof MenuItem) {
-			MenuItem item = (MenuItem) widget;
-			LocalResourceManager m = new LocalResourceManager(
-					JFaceResources.getResources());
-			String iconURI = model.getIconURI();
-			ImageDescriptor icon = getImageDescriptor(model);
-			try {
-				item.setImage(icon == null ? null : m.createImage(icon));
-			} catch (DeviceResourceException e) {
-				icon = ImageDescriptor.getMissingImageDescriptor();
-				item.setImage(m.createImage(icon));
-				// as we replaced the failed icon, log the message once.
-				Activator.trace(Policy.DEBUG_MENUS,
-						"failed to create image " + iconURI, e); //$NON-NLS-1$
+	private String getDisabledIconURI(MItem toolItem) {
+		Object obj = toolItem.getTransientData().get(
+				IPresentationEngine.DISABLED_ICON_IMAGE_KEY);
+		return obj instanceof String ? (String) obj : ""; //$NON-NLS-1$
+	}
+
+	private Image getImage(String iconURI, LocalResourceManager resourceManager) {
+		Image image = null;
+
+		if (iconURI != null && iconURI.length() > 0) {
+			ImageDescriptor iconDescriptor = resUtils
+					.imageDescriptorFromURI(URI.createURI(iconURI));
+			if (iconDescriptor != null) {
+				try {
+					image = resourceManager.createImage(iconDescriptor);
+				} catch (DeviceResourceException e) {
+					iconDescriptor = ImageDescriptor
+							.getMissingImageDescriptor();
+					image = resourceManager.createImage(iconDescriptor);
+					// as we replaced the failed icon, log the message once.
+					Activator.trace(Policy.DEBUG_MENUS,
+							"failed to create image " + iconURI, e); //$NON-NLS-1$
+				}
 			}
-			disposeOldImages();
-			localResourceManager = m;
-		} else if (widget instanceof ToolItem) {
-			ToolItem item = (ToolItem) widget;
-			LocalResourceManager m = new LocalResourceManager(
-					JFaceResources.getResources());
-			String iconURI = model.getIconURI();
-			ImageDescriptor icon = getImageDescriptor(model);
-			try {
-				item.setImage(icon == null ? null : m.createImage(icon));
-			} catch (DeviceResourceException e) {
-				icon = ImageDescriptor.getMissingImageDescriptor();
-				item.setImage(m.createImage(icon));
-				// as we replaced the failed icon, log the message once.
-				Activator.trace(Policy.DEBUG_MENUS,
-						"failed to create image " + iconURI, e); //$NON-NLS-1$
-			}
-			disposeOldImages();
-			localResourceManager = m;
 		}
+		return image;
 	}
 
 	private void disposeOldImages() {
@@ -600,6 +671,10 @@ public class HandledContributionItem extends ContributionItem {
 
 	private void handleWidgetDispose(Event event) {
 		if (event.widget == widget) {
+			if (unreferenceRunnable != null) {
+				unreferenceRunnable.run();
+				unreferenceRunnable = null;
+			}
 			unhookCheckListener();
 			toolItemUpdater.removeItem(this);
 			if (infoContext != null) {
@@ -623,12 +698,24 @@ public class HandledContributionItem extends ContributionItem {
 	@Override
 	public void dispose() {
 		if (widget != null) {
+			if (unreferenceRunnable != null) {
+				unreferenceRunnable.run();
+				unreferenceRunnable = null;
+			}
+
 			ParameterizedCommand command = model.getWbCommand();
 			if (command != null) {
-				State state = command.getCommand()
-						.getState(IMenuStateIds.STYLE);
-				if (state != null) {
-					state.removeListener(stateListener);
+				if (styleState != null) {
+					styleState.removeListener(stateListener);
+					styleState = null;
+				}
+				if (toggleState != null) {
+					toggleState.removeListener(stateListener);
+					toggleState = null;
+				}
+				if (radioState != null) {
+					radioState.removeListener(stateListener);
+					radioState = null;
 				}
 			}
 			widget.dispose();
@@ -700,7 +787,7 @@ public class HandledContributionItem extends ContributionItem {
 			obj = ((MRenderedMenu) mmenu).getContributionManager();
 			if (obj instanceof IContextFunction) {
 				final IEclipseContext lclContext = getContext(mmenu);
-				obj = ((IContextFunction) obj).compute(lclContext);
+				obj = ((IContextFunction) obj).compute(lclContext, null);
 				((MRenderedMenu) mmenu).setContributionManager(obj);
 			}
 			if (obj instanceof IMenuCreator) {
@@ -730,8 +817,9 @@ public class HandledContributionItem extends ContributionItem {
 				Menu menu = (Menu) obj;
 				// menu.setData(AbstractPartRenderer.OWNING_ME, menu);
 				return menu;
-			} else {
-				System.err.println("Rendering returned " + obj); //$NON-NLS-1$
+			}
+			if (logger != null) {
+				logger.debug("Rendering returned " + obj); //$NON-NLS-1$
 			}
 		}
 		return null;
@@ -789,14 +877,6 @@ public class HandledContributionItem extends ContributionItem {
 		super.setParent(parent);
 	}
 
-	private ImageDescriptor getImageDescriptor(MUILabel element) {
-		String iconURI = element.getIconURI();
-		if (iconURI != null && iconURI.length() > 0) {
-			return resUtils.imageDescriptorFromURI(URI.createURI(iconURI));
-		}
-		return null;
-	}
-
 	/**
 	 * Return a parent context for this part.
 	 * 
@@ -825,5 +905,12 @@ public class HandledContributionItem extends ContributionItem {
 
 	public Widget getWidget() {
 		return widget;
+	}
+
+	/**
+	 * @return the model
+	 */
+	public MHandledItem getModel() {
+		return model;
 	}
 }

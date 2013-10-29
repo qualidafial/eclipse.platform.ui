@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2008 IBM Corporation and others.
+ * Copyright (c) 2004, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -240,6 +240,7 @@ public abstract class Binding {
 	 * @return <code>true</code> if the object is a binding with equivalent
 	 *         values for all of its properties; <code>false</code> otherwise.
 	 */
+	@Override
 	public final boolean equals(final Object object) {
 		if (this == object) {
 			return true;
@@ -351,6 +352,7 @@ public abstract class Binding {
 	 * 
 	 * @return The hash code for this key binding.
 	 */
+	@Override
 	public final int hashCode() {
 		if (hashCode == HASH_CODE_NOT_COMPUTED) {
 			hashCode = HASH_INITIAL;
@@ -378,6 +380,7 @@ public abstract class Binding {
 	 * 
 	 * @return The string representation; never <code>null</code>.
 	 */
+	@Override
 	public String toString() {
 		if (string == null) {
 			

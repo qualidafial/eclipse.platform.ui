@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -303,6 +303,15 @@ class PartActivationHistory {
 			}
 		}
 
+		List<String> activeTag = new ArrayList<String>();
+		activeTag.add(EPartService.ACTIVE_ON_CLOSE_TAG);
+		List<MPart> activeCandidates = modelService.findElements(perspective, null, MPart.class,
+				activeTag);
+		if (activeCandidates.size() > 0) {
+			activeCandidates.get(0).getTags().remove(EPartService.ACTIVE_ON_CLOSE_TAG);
+			return activeCandidates.get(0);
+		}
+
 		Collection<MPart> candidates = perspective.getContext().get(EPartService.class).getParts();
 		for (MPart candidate : candidates) {
 			if (isValid(perspective, candidate)) {
@@ -323,7 +332,7 @@ class PartActivationHistory {
 	private MUIElement getSiblingSelectionCandidate(MPart part, MUIElement element) {
 		List<MUIElement> siblings = element.getParent().getChildren();
 		for (MPart previouslyActivatedPart : generalActivationHistory) {
-			if (previouslyActivatedPart != part && previouslyActivatedPart.isToBeRendered()) {
+			if (previouslyActivatedPart != part && isValid(previouslyActivatedPart)) {
 				if (siblings.contains(previouslyActivatedPart)) {
 					return previouslyActivatedPart;
 				}

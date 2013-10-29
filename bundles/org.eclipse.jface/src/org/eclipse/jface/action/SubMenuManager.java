@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2007 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -38,7 +38,7 @@ public class SubMenuManager extends SubContributionManager implements
      * monitor additions and removals.  If the visibility of the manager is modified
      * the visibility of the submenus is also modified.
      */
-    private Map mapMenuToWrapper;
+    private Map<IMenuManager, SubMenuManager> mapMenuToWrapper;
 
     /**
      * List of registered menu listeners (element type: <code>IMenuListener</code>).
@@ -92,7 +92,8 @@ public class SubMenuManager extends SubContributionManager implements
     /* (non-Javadoc)
      * @see org.eclipse.jface.action.SubContributionManager#disposeManager()
      */
-    public void disposeManager() {
+    @Override
+	public void disposeManager() {
         if (menuListener != null) {
             getParentMenuManager().removeMenuListener(menuListener);
             menuListener = null;
@@ -104,9 +105,9 @@ public class SubMenuManager extends SubContributionManager implements
         // otherwise super's call to removeAll will remove them
         // before they can be disposed
         if (mapMenuToWrapper != null) {
-            Iterator iter = mapMenuToWrapper.values().iterator();
+            Iterator<SubMenuManager> iter = mapMenuToWrapper.values().iterator();
             while (iter.hasNext()) {
-                SubMenuManager wrapper = (SubMenuManager) iter.next();
+                SubMenuManager wrapper = iter.next();
                 wrapper.disposeManager();
             }
             mapMenuToWrapper.clear();
@@ -156,7 +157,8 @@ public class SubMenuManager extends SubContributionManager implements
      * In the case of menu's not added by this manager,
      * ensure that we return a wrapper for the menu.
      */
-    public IContributionItem find(String id) {
+    @Override
+	public IContributionItem find(String id) {
         IContributionItem item = getParentMenuManager().find(id);
         if (item instanceof SubContributionItem) {
 			// Return the item passed to us, not the wrapper.
@@ -247,9 +249,9 @@ public class SubMenuManager extends SubContributionManager implements
      */
     protected IMenuManager getWrapper(IMenuManager mgr) {
         if (mapMenuToWrapper == null) {
-            mapMenuToWrapper = new HashMap(4);
+            mapMenuToWrapper = new HashMap<IMenuManager, SubMenuManager>(4);
         }
-        SubMenuManager wrapper = (SubMenuManager) mapMenuToWrapper.get(mgr);
+        SubMenuManager wrapper = mapMenuToWrapper.get(mgr);
         if (wrapper == null) {
             wrapper = wrapMenu(mgr);
             mapMenuToWrapper.put(mgr, wrapper);
@@ -288,12 +290,13 @@ public class SubMenuManager extends SubContributionManager implements
     /**
      * Remove all contribution items.
      */
-    public void removeAll() {
+    @Override
+	public void removeAll() {
         super.removeAll();
         if (mapMenuToWrapper != null) {
-            Iterator iter = mapMenuToWrapper.values().iterator();
+            Iterator<SubMenuManager> iter = mapMenuToWrapper.values().iterator();
             while (iter.hasNext()) {
-                SubMenuManager wrapper = (SubMenuManager) iter.next();
+                SubMenuManager wrapper = iter.next();
                 wrapper.removeAll();
             }
             mapMenuToWrapper.clear();
@@ -333,12 +336,13 @@ public class SubMenuManager extends SubContributionManager implements
     /* (non-Javadoc)
      * @see org.eclipse.jface.action.SubContributionManager#setVisible(boolean)
      */
-    public void setVisible(boolean visible) {
+    @Override
+	public void setVisible(boolean visible) {
         super.setVisible(visible);
         if (mapMenuToWrapper != null) {
-            Iterator iter = mapMenuToWrapper.values().iterator();
+            Iterator<SubMenuManager> iter = mapMenuToWrapper.values().iterator();
             while (iter.hasNext()) {
-                SubMenuManager wrapper = (SubMenuManager) iter.next();
+                SubMenuManager wrapper = iter.next();
                 wrapper.setVisible(visible);
             }
         }

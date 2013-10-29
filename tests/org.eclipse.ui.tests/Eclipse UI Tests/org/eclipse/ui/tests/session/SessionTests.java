@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2011 IBM Corporation and others.
+ * Copyright (c) 2004, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -52,12 +52,16 @@ public class SessionTests extends TestSuite {
 	 * 
 	 */
 	private void addWindowlessSessionTest() {
-		// Windowless apps are available only on Cocoa 
-		if(Util.isCocoa()) {
+		// Windowless apps are available only on Cocoa
+		if (Util.isCocoa()) {
 			Map arguments = new HashMap(2);
 			arguments.put("product", null);
-			arguments.put("testApplication", "org.eclipse.ui.tests.windowLessRcpApplication");
-			addTest(new WorkbenchSessionTest("windowlessSessionTests",WindowlessSessionTest.class, arguments));
+			arguments.put("testApplication",
+					"org.eclipse.ui.tests.windowLessRcpApplication");
+			WorkbenchSessionTest test = new WorkbenchSessionTest(
+					"windowlessSessionTests", arguments);
+			test.addTest(WindowlessSessionTest.suite());
+			addTest(test);
 		}
 	}
 
@@ -66,39 +70,44 @@ public class SessionTests extends TestSuite {
 	 */
 	private void addStatusHandlingTests() {
 		//actually we do not care which workspace is used
-		addTest(new StatusHandlerConfigurationSuite("themeSessionTests",
-				StatusHandlingConfigurationTest.class));
+		StatusHandlerConfigurationSuite test = new StatusHandlerConfigurationSuite("themeSessionTests");
+		test.addTest(StatusHandlingConfigurationTest.suite());
+		addTest(test);
 	}
 
 	/**
 	 * 
 	 */
 	private void addThemeTests() {
-		addTest(new WorkbenchSessionTest("themeSessionTests",
-				ThemeStateTest.class));
-		
+		WorkbenchSessionTest test = new WorkbenchSessionTest("themeSessionTests");
+		test.addTest(ThemeStateTest.suite());
+		addTest(test);
 	}
 
 	private void addRestoredSessionTest() {
 		Map arguments = new HashMap(2);
 		arguments.put("product", null);
 		arguments.put("testApplication", "org.eclipse.ui.tests.rcpSessionApplication");
-		addTest(new WorkbenchSessionTest("introSessionTests",RestoreSessionTest.class, arguments));
+		WorkbenchSessionTest test = new WorkbenchSessionTest("introSessionTests", arguments);
+		test.addTest(RestoreSessionTest.suite());
+		addTest(test);
 	}
 
 	/**
 	 * Add editor tests that involve starting and stopping sessions.
 	 */
 	private void addEditorTests() {
-		addTest(new WorkbenchSessionTest("editorSessionTests",
-				Bug95357Test.class));
-		
 		WorkbenchSessionTest test = new WorkbenchSessionTest("editorSessionTests");
+		test.addTest(Bug95357Test.suite());
+		addTest(test);
+		
+		test = new WorkbenchSessionTest("editorSessionTests");
 		test.addTest(EditorWithStateTest.suite());
 		addTest(test);
 
-		addTest(new WorkbenchSessionTest("editorSessionTests",
-				ArbitraryPropertiesEditorTest.class));
+		test = new WorkbenchSessionTest("editorSessionTests");
+		test.addTest(ArbitraryPropertiesEditorTest.suite());
+		addTest(test);
 	}
 
 	/**
@@ -107,16 +116,18 @@ public class SessionTests extends TestSuite {
 	 * @since 3.2
 	 */
 	private void addHandlerStateTests() {
-		addTest(new WorkbenchSessionTest("editorSessionTests",
-				HandlerStateTest.class));
+		WorkbenchSessionTest test = new WorkbenchSessionTest("editorSessionTests");
+		test.addTest(HandlerStateTest.suite());
+		addTest(test);
 	}
 
 	/**
 	 * Adds intro related session tests.
 	 */
 	private void addIntroTests() {
-		addTest(new WorkbenchSessionTest("introSessionTests",
-				IntroSessionTests.class));
+		WorkbenchSessionTest test = new WorkbenchSessionTest("introSessionTests");
+		test.addTest(IntroSessionTests.suite());
+		addTest(test);
 	}
 
 	/**
@@ -126,17 +137,28 @@ public class SessionTests extends TestSuite {
 	 * workspace for these particular session tests.
 	 */
 	private void addViewStateTests() {
-		addTest(new WorkbenchSessionTest("editorSessionTests",
-				Bug98800Test.class));
-		addTest(new WorkbenchSessionTest("editorSessionTests",
-				Bug108033Test.class));
-		addTest(new WorkbenchSessionTest("editorSessionTests",
-				ArbitraryPropertiesViewTest.class));
-		addTest(new WorkbenchSessionTest("editorSessionTests",
-				NonRestorableViewTest.class));
-		addTest(new WorkbenchSessionTest("editorSessionTests",
-				NonRestorablePropertySheetTest.class));
-		addTest(new WorkbenchSessionTest("editorSessionTests",
-				MarkersViewColumnSizeTest.class));
+		WorkbenchSessionTest test = new WorkbenchSessionTest("editorSessionTests");
+		test.addTest(Bug98800Test.suite());
+		addTest(test);
+		
+		test = new WorkbenchSessionTest("editorSessionTests");
+		test.addTest(Bug108033Test.suite());
+		addTest(test);
+		
+		test = new WorkbenchSessionTest("editorSessionTests");
+		test.addTest(ArbitraryPropertiesViewTest.suite());
+		addTest(test);
+		
+		test = new WorkbenchSessionTest("editorSessionTests");
+		test.addTest(NonRestorableViewTest.suite());
+		addTest(test);
+		
+		test = new WorkbenchSessionTest("editorSessionTests");
+		test.addTest(NonRestorablePropertySheetTest.suite());
+		addTest(test);
+
+		test = new WorkbenchSessionTest("editorSessionTests");
+		test.addTest(MarkersViewColumnSizeTest.suite());
+		addTest(test);
 	}
 }

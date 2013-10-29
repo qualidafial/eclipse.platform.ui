@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2011 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -20,11 +20,10 @@ import org.eclipse.core.commands.contexts.IContextManagerListener;
 import org.eclipse.core.expressions.EvaluationResult;
 import org.eclipse.core.expressions.Expression;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.e4.core.commands.ExpressionContext;
 import org.eclipse.e4.core.contexts.IEclipseContext;
 import org.eclipse.e4.core.contexts.RunAndTrack;
-import org.eclipse.e4.ui.di.UISynchronize;
 import org.eclipse.e4.ui.services.EContextService;
-import org.eclipse.e4.ui.workbench.modeling.ExpressionContext;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.ISourceProvider;
 import org.eclipse.ui.ISources;
@@ -61,9 +60,6 @@ public final class ContextService implements IContextService {
 	@Inject
 	private IEclipseContext eclipseContext;
 
-	@Inject
-	private UISynchronize synchService;
-
 	/**
 	 * The persistence class for this context service.
 	 */
@@ -92,6 +88,7 @@ public final class ContextService implements IContextService {
 	 */
 	public void deferUpdates(boolean defer) {
 		contextManager.deferUpdates(defer);
+		contextService.deferUpdates(defer);
 	}
 
 	/*
@@ -109,6 +106,8 @@ public final class ContextService implements IContextService {
 		private String contextId;
 		private Expression expression;
 
+		EvaluationResult cached = null;
+
 		public UpdateExpression(String contextId, Expression expression) {
 			this.contextId = contextId;
 			this.expression = expression;
@@ -119,20 +118,29 @@ public final class ContextService implements IContextService {
 			if (!updating) {
 				return false;
 			}
-			ExpressionContext ctx = new ExpressionContext(eclipseContext.getActiveLeaf());
+			ExpressionContext ctx = new ExpressionContext(eclipseContext);
 			try {
-				final boolean shouldActivate = expression.evaluate(ctx) != EvaluationResult.FALSE;
-				synchService.asyncExec(new Runnable() {
-					public void run() {
-						if (updating) {
-							if (shouldActivate) {
+				if (updating) {
+					EvaluationResult result = expression.evaluate(ctx);
+					if (cached != null
+							&& (cached == result || (cached != EvaluationResult.FALSE && result != EvaluationResult.FALSE))) {
+						return updating;
+					}
+					if (result != EvaluationResult.FALSE) {
+						runExternalCode(new Runnable() {
+							public void run() {
 								contextService.activateContext(contextId);
-							} else {
+							}
+						});
+					} else if (cached != null) {
+						runExternalCode(new Runnable() {
+							public void run() {
 								contextService.deactivateContext(contextId);
 							}
-						}
+						});
 					}
-				});
+					cached = result;
+				}
 			} catch (CoreException e) {
 				// contextService.deactivateContext(contextId);
 				WorkbenchPlugin.log("Failed to update " + contextId, e); //$NON-NLS-1$
@@ -214,8 +222,12 @@ public final class ContextService implements IContextService {
 			final UpdateExpression rat = activationToRat.remove(activation);
 			if (rat != null) {
 				rat.updating = false;
+				if (rat.cached != null && rat.cached != EvaluationResult.FALSE) {
+					contextService.deactivateContext(activation.getContextId());
+				}
+			} else {
+				contextService.deactivateContext(activation.getContextId());
 			}
-			contextService.deactivateContext(activation.getContextId());
 			contextAuthority.deactivateContext(activation);
 		}
 	}

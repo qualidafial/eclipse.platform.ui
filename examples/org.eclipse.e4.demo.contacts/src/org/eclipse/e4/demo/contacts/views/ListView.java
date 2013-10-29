@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2010 Siemens AG and others.
+ * Copyright (c) 2009, 2012 Siemens AG and others.
  * 
  * All rights reserved. This program and the accompanying materials 
  * are made available under the terms of the Eclipse Public License v1.0
@@ -11,6 +11,8 @@
  ******************************************************************************/
 
 package org.eclipse.e4.demo.contacts.views;
+
+import org.eclipse.e4.ui.workbench.swt.modeling.EMenuService;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -41,9 +43,9 @@ public class ListView {
 
 	@Inject
 	private ESelectionService selectionService;
-
+	
 	@Inject
-	public ListView(Composite parent) {
+	public ListView(Composite parent, EMenuService menuService) {
 		// Table composite (because of TableColumnLayout)
 		final Composite tableComposite = new Composite(parent, SWT.NONE);
 		tableComposite.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true,
@@ -80,6 +82,8 @@ public class ListView {
 		tableColumnLayout.setColumnData(lastNameColumn.getColumn(),
 				new ColumnWeightData(60));
 
+		menuService.registerContextMenu(contactsViewer.getControl(), "contacts.popup");
+		
 		ObservableListContentProvider contentProvider = new ObservableListContentProvider();
 
 		contactsViewer.setContentProvider(contentProvider);

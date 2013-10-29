@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2006 IBM Corporation and others.
+ * Copyright (c) 2004, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,11 +13,15 @@ package org.eclipse.ui.presentations;
 import org.eclipse.swt.graphics.Rectangle;
 
 /**
- * This structure describes a drop event that will cause a dragged part
- * to be stacked in a position currently occupied by another part. 
+ * This structure describes a drop event that will cause a dragged part to be
+ * stacked in a position currently occupied by another part.
  * 
  * @since 3.0
+ * @deprecated The presentation API is no longer used and has no effect. Refer
+ *             to the platform porting guide for further details. This API will
+ *             be deleted in a future release. See bug 370248 for details.
  */
+@Deprecated
 public final class StackDropResult {
 
     private Rectangle snapRectangle;

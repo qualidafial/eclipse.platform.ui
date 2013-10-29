@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -20,6 +20,7 @@ import org.eclipse.e4.ui.workbench.modeling.EModelService;
 import org.eclipse.jface.action.StatusLineManager;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.internal.progress.ProgressRegion;
 import org.eclipse.ui.internal.util.PrefUtil;
 
@@ -78,7 +79,23 @@ public class StandardTrim {
 	private void createStatusLine(Composite parent, MToolControl toolControl) {
 		IEclipseContext context = modelService.getContainingContext(toolControl);
 		WorkbenchWindow wbw = (WorkbenchWindow) context.get(IWorkbenchWindow.class);
-		manager = wbw.getStatusLineManager();
-		manager.createControl(parent);
+		// wbw may be null if workspace is started with no open perspectives.
+		if (wbw == null) {
+			// Create one assuming there's no defined perspective
+			Workbench wb = (Workbench) PlatformUI.getWorkbench();
+			wb.createWorkbenchWindow(wb.getDefaultPageInput(), null,
+					modelService.getTopLevelWindowFor(toolControl), false);
+			wbw = (WorkbenchWindow) context.get(IWorkbenchWindow.class);
+		}
+
+		if (wbw != null) {
+			Workbench wb = (Workbench) PlatformUI.getWorkbench();
+			wb.createWorkbenchWindow(wb.getDefaultPageInput(), null,
+					modelService.getTopLevelWindowFor(toolControl), false);
+			wbw = (WorkbenchWindow) context.get(IWorkbenchWindow.class);
+
+			manager = wbw.getStatusLineManager();
+			manager.createControl(parent);
+		}
 	}
 }

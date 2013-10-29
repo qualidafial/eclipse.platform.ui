@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008 IBM Corporation and others.
+ * Copyright (c) 2008, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -97,6 +97,7 @@ public class DelegatingStyledCellLabelProvider extends StyledCellLabelProvider {
 	 * 
 	 * @see org.eclipse.jface.viewers.StyledCellLabelProvider#update(org.eclipse.jface.viewers.ViewerCell)
 	 */
+	@Override
 	public void update(ViewerCell cell) {
 		Object element = cell.getElement();
 
@@ -204,20 +205,24 @@ public class DelegatingStyledCellLabelProvider extends StyledCellLabelProvider {
 		return this.styledLabelProvider;
 	}
 
+	@Override
 	public void addListener(ILabelProviderListener listener) {
 		super.addListener(listener);
 		this.styledLabelProvider.addListener(listener);
 	}
 
+	@Override
 	public void removeListener(ILabelProviderListener listener) {
 		super.removeListener(listener);
 		this.styledLabelProvider.removeListener(listener);
 	}
 
+	@Override
 	public boolean isLabelProperty(Object element, String property) {
 		return this.styledLabelProvider.isLabelProperty(element, property);
 	}
 
+	@Override
 	public void dispose() {
 		super.dispose();
 		this.styledLabelProvider.dispose();

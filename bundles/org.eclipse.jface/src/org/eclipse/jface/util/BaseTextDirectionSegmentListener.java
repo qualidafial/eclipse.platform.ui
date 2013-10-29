@@ -1,0 +1,72 @@
+/*******************************************************************************
+ * Copyright (c) 2012, 2013 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ ******************************************************************************/
+
+package org.eclipse.jface.util;
+
+import org.eclipse.swt.events.SegmentEvent;
+import org.eclipse.swt.events.SegmentListener;
+
+/**
+ * Defines the segment listener that enforces Base Text Direction (BTD) support.
+ *
+ * @since 3.9
+ */
+/*package*/ class BaseTextDirectionSegmentListener implements SegmentListener {
+	
+	private String textDirection;
+
+	/**
+	 * Creates a new segment listener that enforces Base Text Direction (BTD) support.
+	 * 
+	 * @param textDir the text direction
+	 * Possible values are:
+	 * <ul>
+	 * <li> {@link BidiUtils#LEFT_TO_RIGHT}
+	 * <li> {@link BidiUtils#RIGHT_TO_LEFT}
+	 * <li> {@link BidiUtils#AUTO}
+	 * </ul>
+	 */ 
+	public BaseTextDirectionSegmentListener(String textDir) {
+		super();
+		textDirection = textDir;
+	}
+
+	public void getSegments(SegmentEvent event) {
+		int length = event.lineText.length();
+		if (length > 0) {
+			event.segments = new int[2];
+			event.segments[0] = 0;
+			event.segments[1] = length;
+			event.segmentsChars = new char[2];
+			event.segmentsChars[0] = isRTLValue(event.lineText) ? BidiUtils.RLE : BidiUtils.LRE;
+			event.segmentsChars[1] = BidiUtils.PDF;				
+		}
+	}
+	
+	private boolean isRTLValue(String stringValue){
+		if (stringValue == null || stringValue.length() == 0 || BidiUtils.LEFT_TO_RIGHT.equals(textDirection))
+			return false;
+
+		if (BidiUtils.RIGHT_TO_LEFT.equals(textDirection))
+			return true;
+
+		for (int i = 0; i < stringValue.length(); i++) {
+			if (Character.getDirectionality(stringValue.charAt(i)) == Character.DIRECTIONALITY_RIGHT_TO_LEFT
+					|| Character.getDirectionality(stringValue.charAt(i)) == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC
+					|| Character.getDirectionality(stringValue.charAt(i)) == Character.DIRECTIONALITY_ARABIC_NUMBER)
+				return true;
+			else if (Character.getDirectionality(stringValue.charAt(i)) == Character.DIRECTIONALITY_LEFT_TO_RIGHT) {
+				return false;
+			}
+		}
+		return false;
+    }
+}

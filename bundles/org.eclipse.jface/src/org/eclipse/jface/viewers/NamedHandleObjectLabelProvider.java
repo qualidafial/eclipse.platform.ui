@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2007 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -33,6 +33,7 @@ public final class NamedHandleObjectLabelProvider extends LabelProvider {
 	 * @return the name of the handle object; <code>null</code> if there is no
 	 *         name or if the element is not a named handle object.
 	 */
+	@Override
 	public final String getText(final Object element) {
 		if (element instanceof NamedHandleObject) {
 			try {

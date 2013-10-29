@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2007 IBM Corporation and others.
+ * Copyright (c) 2006, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -26,6 +26,10 @@ import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.ActionContributionItem;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.MenuManager;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Menu;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.ISources;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.contexts.IContextActivation;
@@ -100,18 +104,29 @@ public class MenuVisibilityTest extends UITestCase {
 		menuService.addContributionFactory(factory);
 		menuService.populateContributionManager(manager, LOCATION);
 		
+		Shell shell = window.getShell();
+
+		// Test the initial menu creation
+		final Menu menuBar = manager.createContextMenu(shell);
+		Event e = new Event();
+		e.type = SWT.Show;
+		e.widget = menuBar;
+		menuBar.notifyListeners(SWT.Show, e);
+		
 		assertFalse("starting state", item.isVisible());
 
 		activeContext = contextService
 				.activateContext(MenuContributionHarness.CONTEXT_TEST1_ID);
+		menuBar.notifyListeners(SWT.Show, e);
 
 		assertTrue("active context", item.isVisible());
 
 		contextService.deactivateContext(activeContext);
 		activeContext = null;
+		menuBar.notifyListeners(SWT.Show, e);
 
 		assertFalse("after deactivation", item.isVisible());
-
+		
 		menuService.releaseContributions(manager);
 		menuService.removeContributionFactory(factory);
 		manager.dispose();
@@ -175,12 +190,18 @@ public class MenuVisibilityTest extends UITestCase {
 
 		activeContext = contextService
 				.activateContext(MenuContributionHarness.CONTEXT_TEST1_ID);
+		final Menu menu = manager.createContextMenu(window.getShell());
+		menu.notifyListeners(SWT.Show, new Event());
 		assertTrue("active context", aci.isVisible());
+		menu.notifyListeners(SWT.Hide, new Event());
 
+		
 		contextService.deactivateContext(activeContext);
 		activeContext = null;
 
+		menu.notifyListeners(SWT.Show, new Event());
 		assertFalse("after deactivation", aci.isVisible());
+		menu.notifyListeners(SWT.Hide, new Event());
 
 		menuService.releaseContributions(manager);
 		menuService.removeContributionFactory(factory);

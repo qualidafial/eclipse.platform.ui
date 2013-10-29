@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2009 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -157,6 +157,7 @@ public class TreeSelection extends StructuredSelection implements ITreeSelection
 		return element2TreePaths.getComparer();
 	}
 	
+	@Override
 	public boolean equals(Object obj) {
 		if (!(obj instanceof TreeSelection)) {
 			// Fall back to super implementation, see bug 135837.
@@ -179,6 +180,7 @@ public class TreeSelection extends StructuredSelection implements ITreeSelection
 		return false;
 	}
 
+	@Override
 	public int hashCode() {
 		int code = getClass().hashCode();
 		if (paths != null) {

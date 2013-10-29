@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2010 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -279,6 +279,20 @@ public class PropertyPagesRegistryReader extends CategorizedPageRegistryReader {
 	 */
 	String getCategory(Object node) {
 		return ((RegistryPageContributor) node).getCategory();
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.eclipse.ui.internal.registry.CategorizedPageRegistryReader#
+	 * invalidCategoryNodeMessage
+	 * (org.eclipse.ui.internal.registry.CategorizedPageRegistryReader
+	 * .CategoryNode)
+	 */
+	@Override
+	protected String invalidCategoryNodeMessage(CategoryNode categoryNode) {
+		RegistryPageContributor rpc = (RegistryPageContributor) categoryNode.getNode();
+		return "Invalid property category path: " + rpc.getCategory() + " (bundle: " + rpc.getPluginId() + ", propertyPage: " + rpc.getLocalId() + ")"; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 	}
 
 	/*

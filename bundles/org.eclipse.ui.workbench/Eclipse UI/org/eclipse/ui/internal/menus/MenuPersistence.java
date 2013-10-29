@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2011 IBM Corporation and others.
+ * Copyright (c) 2005, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,9 +14,7 @@ package org.eclipse.ui.internal.menus;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map.Entry;
 import java.util.regex.Pattern;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExtensionRegistry;
@@ -27,8 +25,6 @@ import org.eclipse.e4.ui.internal.workbench.ContributionsAnalyzer;
 import org.eclipse.e4.ui.model.application.MApplication;
 import org.eclipse.e4.ui.model.application.ui.menu.MMenuContribution;
 import org.eclipse.e4.ui.model.application.ui.menu.MToolBarContribution;
-import org.eclipse.e4.ui.model.application.ui.menu.MToolBarElement;
-import org.eclipse.e4.ui.model.application.ui.menu.MToolBarSeparator;
 import org.eclipse.e4.ui.model.application.ui.menu.MTrimContribution;
 import org.eclipse.ui.internal.registry.IWorkbenchRegistryConstants;
 import org.eclipse.ui.internal.services.RegistryPersistence;
@@ -49,9 +45,7 @@ final public class MenuPersistence extends RegistryPersistence {
 	private MApplication application;
 	private IEclipseContext appContext;
 	private ArrayList<MenuAdditionCacheEntry> cacheEntries = new ArrayList<MenuAdditionCacheEntry>();
-	private ArrayList<ActionSet> actionContributions = new ArrayList<ActionSet>();
 	private ArrayList<EditorAction> editorActionContributions = new ArrayList<EditorAction>();
-	private ArrayList<ViewAction> viewActionContributions = new ArrayList<ViewAction>();
 
 	private ArrayList<MMenuContribution> menuContributions = new ArrayList<MMenuContribution>();
 	private ArrayList<MToolBarContribution> toolBarContributions = new ArrayList<MToolBarContribution>();
@@ -91,9 +85,7 @@ final public class MenuPersistence extends RegistryPersistence {
 		application.getTrimContributions().removeAll(trimContributions);
 		menuContributions.clear();
 		cacheEntries.clear();
-		actionContributions.clear();
 		editorActionContributions.clear();
-		viewActionContributions.clear();
 		super.dispose();
 	}
 	/*
@@ -117,9 +109,8 @@ final public class MenuPersistence extends RegistryPersistence {
 		super.read();
 
 		readAdditions();
-		readActionSets();
+		// readActionSets();
 		readEditorActions();
-		readViewActions();
 
 		ArrayList<MMenuContribution> tmp = new ArrayList<MMenuContribution>(menuContributions);
 		menuContributions.clear();
@@ -177,60 +168,6 @@ final public class MenuPersistence extends RegistryPersistence {
 		}
 	}
 
-	private void readActionSets() {
-		final IExtensionRegistry registry = Platform.getExtensionRegistry();
-		ArrayList<IConfigurationElement> configElements = new ArrayList<IConfigurationElement>();
-
-		final IConfigurationElement[] extElements = registry
-				.getConfigurationElementsFor(IWorkbenchRegistryConstants.EXTENSION_ACTION_SETS);
-		for (IConfigurationElement element : extElements) {
-			if (contributorFilter == null
-					|| contributorFilter.matcher(element.getContributor().getName()).matches()) {
-				configElements.add(element);
-			}
-		}
-
-		Collections.sort(configElements, comparer);
-
-		HashMap<String, ArrayList<MToolBarContribution>> postProcessing = new HashMap<String, ArrayList<MToolBarContribution>>();
-		for (IConfigurationElement element : configElements) {
-			ArrayList<MToolBarContribution> localToolbarContributions = new ArrayList<MToolBarContribution>();
-			ActionSet actionSet = new ActionSet(application, appContext, element);
-			actionContributions.add(actionSet);
-			actionSet.addToModel(menuContributions, localToolbarContributions, trimContributions);
-			toolBarContributions.addAll(localToolbarContributions);
-			postProcessing.put(actionSet.getId(), localToolbarContributions);
-		}
-		for (Entry<String, ArrayList<MToolBarContribution>> entry : postProcessing.entrySet()) {
-			for (MToolBarContribution contribution : entry.getValue()) {
-				String targetParentId = contribution.getParentId();
-				if (entry.getKey().equals(targetParentId)) {
-					continue;
-				}
-				ArrayList<MToolBarContribution> adjunctContributions = postProcessing
-						.get(targetParentId);
-				if (adjunctContributions == null) {
-					continue;
-				}
-				boolean processed = false;
-				Iterator<MToolBarContribution> i = adjunctContributions.iterator();
-				while (i.hasNext() && !processed) {
-					MToolBarContribution adjunctContribution = i.next();
-					if (targetParentId.equals(adjunctContribution.getParentId())) {
-						for (MToolBarElement item : adjunctContribution.getChildren()) {
-							if (!(item instanceof MToolBarSeparator) && item.getElementId() != null) {
-								processed = true;
-								contribution.setPositionInParent("before=" + item.getElementId()); //$NON-NLS-1$
-								break;
-							}
-						}
-					}
-				}
-			}
-		}
-		postProcessing.clear();
-	}
-
 	private void readEditorActions() {
 		final IExtensionRegistry registry = Platform.getExtensionRegistry();
 		ArrayList<IConfigurationElement> configElements = new ArrayList<IConfigurationElement>();
@@ -259,42 +196,6 @@ final public class MenuPersistence extends RegistryPersistence {
 		}
 	}
 
-	private void readViewActions() {
-		final IExtensionRegistry registry = Platform.getExtensionRegistry();
-		ArrayList<IConfigurationElement> configElements = new ArrayList<IConfigurationElement>();
-
-		final IConfigurationElement[] extElements = registry
-				.getConfigurationElementsFor(IWorkbenchRegistryConstants.EXTENSION_VIEW_ACTIONS);
-		for (IConfigurationElement element : extElements) {
-			if (contributorFilter == null
-					|| contributorFilter.matcher(element.getContributor().getName()).matches()) {
-				configElements.add(element);
-			}
-		}
-
-		Collections.sort(configElements, comparer);
-
-		for (IConfigurationElement element : configElements) {
-			IConfigurationElement[] children = element.getChildren();
-			// go in reverse order
-			for (int i = children.length - 1; i >= 0; i--) {
-				IConfigurationElement child = children[i];
-				if (child.getName().equals(IWorkbenchRegistryConstants.TAG_ACTION)) {
-					ViewAction viewAction = new ViewAction(application, appContext, element, child,
-							false);
-					viewActionContributions.add(viewAction);
-					viewAction.addToModel(menuContributions, toolBarContributions,
-							trimContributions);
-				} else if (child.getName().equals(IWorkbenchRegistryConstants.TAG_MENU)) {
-					ViewAction viewAction = new ViewAction(application, appContext, element, child,
-							true);
-					viewActionContributions.add(viewAction);
-					viewAction.addToModel(menuContributions, toolBarContributions,
-							trimContributions);
-				}
-			}
-		}
-	}
 
 	private boolean isProgramaticContribution(IConfigurationElement menuAddition) {
 		return menuAddition.getAttribute(IWorkbenchRegistryConstants.ATT_CLASS) != null;

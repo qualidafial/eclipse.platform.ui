@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2009 IBM Corporation and others.
+ * Copyright (c) 2008, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -23,9 +23,9 @@ import org.eclipse.e4.ui.model.application.ui.advanced.MPlaceholder;
 import org.eclipse.e4.ui.model.application.ui.basic.MPart;
 import org.eclipse.e4.ui.model.application.ui.basic.MPartStack;
 import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
-import org.eclipse.e4.ui.widgets.CTabFolder;
+import org.eclipse.e4.ui.workbench.IPresentationEngine;
 import org.eclipse.e4.ui.workbench.UIEvents;
-import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.osgi.service.event.Event;
@@ -58,14 +58,13 @@ public abstract class LazyStackRenderer extends SWTPartRenderer {
 			MUIElement oldSel = (MUIElement) event
 					.getProperty(UIEvents.EventTags.OLD_VALUE);
 			if (oldSel != null) {
-				List<MUIElement> goingHidden = new ArrayList<MUIElement>();
-				hideElementRecursive(oldSel, goingHidden);
+				hideElementRecursive(oldSel);
 			}
 
 			if (stack.getSelectedElement() != null)
 				lsr.showTab(stack.getSelectedElement());
 		}
-	};;
+	};
 
 	public LazyStackRenderer() {
 		super();
@@ -110,9 +109,30 @@ public abstract class LazyStackRenderer extends SWTPartRenderer {
 	public void processContents(MElementContainer<MUIElement> me) {
 		// Lazy Loading: here we only process the contents through childAdded,
 		// we specifically do not render them
-		for (MUIElement part : me.getChildren()) {
-			if (part.isToBeRendered() && part.isVisible())
-				createTab(me, part);
+		IPresentationEngine renderer = (IPresentationEngine) context
+				.get(IPresentationEngine.class.getName());
+
+		for (MUIElement element : me.getChildren()) {
+			if (!element.isToBeRendered() || !element.isVisible())
+				continue;
+			boolean lazy = true;
+
+			// Special case: we also render any placeholder that refers to
+			// an *existing* part, this doesn't break lazy loading since the
+			// part is already there...see bug 378138 for details
+			if (element instanceof MPlaceholder) {
+				MPlaceholder ph = (MPlaceholder) element;
+				if (ph.getRef() instanceof MPart
+						&& ph.getRef().getWidget() != null) {
+					lazy = false;
+				}
+			}
+
+			if (lazy) {
+				createTab(me, element);
+			} else {
+				renderer.createGui(element);
+			}
 		}
 	}
 
@@ -130,24 +150,15 @@ public abstract class LazyStackRenderer extends SWTPartRenderer {
 
 	protected void showTab(MUIElement element) {
 		// Now process any newly visible elements
-		List<MUIElement> becomingVisible = new ArrayList<MUIElement>();
 		MUIElement curSel = element.getParent().getSelectedElement();
 		if (curSel != null) {
-			showElementRecursive(curSel, becomingVisible);
+			showElementRecursive(curSel);
 		}
 	}
 
-	private void hideElementRecursive(MUIElement element,
-			List<MUIElement> goingHidden) {
+	private void hideElementRecursive(MUIElement element) {
 		if (element == null || element.getWidget() == null)
 			return;
-
-		if (element instanceof MPartStack
-				&& element.getRenderer() instanceof StackRenderer) {
-			StackRenderer sr = (StackRenderer) element.getRenderer();
-			CTabFolder ctf = (CTabFolder) element.getWidget();
-			sr.clearTR(ctf);
-		}
 
 		if (element instanceof MPlaceholder) {
 			MPlaceholder ph = (MPlaceholder) element;
@@ -159,34 +170,31 @@ public abstract class LazyStackRenderer extends SWTPartRenderer {
 			element.setVisible(false);
 		}
 
-		goingHidden.add(element);
-
 		if (element instanceof MGenericStack<?>) {
 			// For stacks only the currently selected elements are being hidden
 			MGenericStack<?> container = (MGenericStack<?>) element;
 			MUIElement curSel = container.getSelectedElement();
-			hideElementRecursive(curSel, goingHidden);
+			hideElementRecursive(curSel);
 		} else if (element instanceof MElementContainer<?>) {
 			MElementContainer<?> container = (MElementContainer<?>) element;
 			for (MUIElement childElement : container.getChildren()) {
-				hideElementRecursive(childElement, goingHidden);
+				hideElementRecursive(childElement);
 			}
 
 			// OK, now process detached windows
 			if (element instanceof MWindow) {
 				for (MWindow w : ((MWindow) element).getWindows()) {
-					hideElementRecursive(w, goingHidden);
+					hideElementRecursive(w);
 				}
 			} else if (element instanceof MPerspective) {
 				for (MWindow w : ((MPerspective) element).getWindows()) {
-					hideElementRecursive(w, goingHidden);
+					hideElementRecursive(w);
 				}
 			}
 		}
 	}
 
-	private void showElementRecursive(MUIElement element,
-			List<MUIElement> becomingVisible) {
+	private void showElementRecursive(MUIElement element) {
 		if (!element.isToBeRendered())
 			return;
 
@@ -205,7 +213,7 @@ public abstract class LazyStackRenderer extends SWTPartRenderer {
 			if (curSel instanceof MPlaceholder) {
 				part.setCurSharedRef((MPlaceholder) curSel);
 			}
-			sr.adjustTR(ctf, part);
+			sr.adjustTopRight(ctf);
 		}
 
 		if (element instanceof MPlaceholder && element.getWidget() != null) {
@@ -216,7 +224,6 @@ public abstract class LazyStackRenderer extends SWTPartRenderer {
 			Composite phComp = (Composite) ph.getWidget();
 			Control refCtrl = (Control) ph.getRef().getWidget();
 			refCtrl.setParent(phComp);
-			phComp.layout(new Control[] { refCtrl }, SWT.DEFER);
 
 			element = ref;
 		}
@@ -245,8 +252,6 @@ public abstract class LazyStackRenderer extends SWTPartRenderer {
 				element.setVisible(true);
 		}
 
-		becomingVisible.add(element);
-
 		if (element instanceof MGenericStack<?>) {
 			// For stacks only the currently selected elements are being visible
 			MGenericStack<?> container = (MGenericStack<?>) element;
@@ -254,23 +259,23 @@ public abstract class LazyStackRenderer extends SWTPartRenderer {
 			if (curSel == null && container.getChildren().size() > 0)
 				curSel = container.getChildren().get(0);
 			if (curSel != null)
-				showElementRecursive(curSel, becomingVisible);
+				showElementRecursive(curSel);
 		} else if (element instanceof MElementContainer<?>) {
 			MElementContainer<?> container = (MElementContainer<?>) element;
 			List<MUIElement> kids = new ArrayList<MUIElement>(
 					container.getChildren());
 			for (MUIElement childElement : kids) {
-				showElementRecursive(childElement, becomingVisible);
+				showElementRecursive(childElement);
 			}
 
 			// OK, now process detached windows
 			if (element instanceof MWindow) {
 				for (MWindow w : ((MWindow) element).getWindows()) {
-					showElementRecursive(w, becomingVisible);
+					showElementRecursive(w);
 				}
 			} else if (element instanceof MPerspective) {
 				for (MWindow w : ((MPerspective) element).getWindows()) {
-					showElementRecursive(w, becomingVisible);
+					showElementRecursive(w);
 				}
 			}
 		}

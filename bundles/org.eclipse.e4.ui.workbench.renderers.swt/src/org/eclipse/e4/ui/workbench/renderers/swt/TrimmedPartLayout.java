@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008 IBM Corporation and others.
+ * Copyright (c) 2008, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,6 +17,7 @@ import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Layout;
 
 /**
@@ -116,7 +117,7 @@ public class TrimmedPartLayout extends Layout {
 		Rectangle caRect = new Rectangle(ca.x, ca.y, ca.width, ca.height);
 
 		// 'Top' spans the entire area
-		if (top != null) {
+		if (top != null && top.isVisible()) {
 			Point topSize = top.computeSize(caRect.width, SWT.DEFAULT, true);
 			caRect.y += topSize.y;
 			caRect.height -= topSize.y;
@@ -133,7 +134,7 @@ public class TrimmedPartLayout extends Layout {
 		caRect.height -= gutterTop;
 
 		// 'Bottom' spans the entire area
-		if (bottom != null) {
+		if (bottom != null && bottom.isVisible()) {
 			Point bottomSize = bottom.computeSize(caRect.width, SWT.DEFAULT,
 					true);
 			caRect.height -= bottomSize.y;
@@ -148,7 +149,7 @@ public class TrimmedPartLayout extends Layout {
 		caRect.height -= gutterBottom;
 
 		// 'Left' spans between 'top' and 'bottom'
-		if (left != null) {
+		if (left != null && left.isVisible()) {
 			Point leftSize = left.computeSize(SWT.DEFAULT, caRect.height, true);
 			caRect.x += leftSize.x;
 			caRect.width -= leftSize.x;
@@ -164,7 +165,7 @@ public class TrimmedPartLayout extends Layout {
 		caRect.width -= gutterLeft;
 
 		// 'Right' spans between 'top' and 'bottom'
-		if (right != null) {
+		if (right != null && right.isVisible()) {
 			Point rightSize = right.computeSize(SWT.DEFAULT, caRect.height,
 					true);
 			caRect.width -= rightSize.x;
@@ -240,4 +241,57 @@ public class TrimmedPartLayout extends Layout {
 		return null;
 	}
 
+	public Rectangle getTrimRect(int side) {
+		Rectangle caBounds = clientArea.getBounds();
+		caBounds = Display.getCurrent().map(clientArea.getParent(), null,
+				caBounds);
+
+		if (side == SWT.TOP) {
+			if (top != null) {
+				Rectangle b = top.getBounds();
+				b = top.getDisplay().map(top.getParent(), null, b);
+				return b;
+			}
+
+			// Fake one
+			caBounds.height = 25;
+			return caBounds;
+		}
+		if (side == SWT.BOTTOM) {
+			if (bottom != null) {
+				Rectangle b = bottom.getBounds();
+				b = bottom.getDisplay().map(bottom.getParent(), null, b);
+				return b;
+			}
+
+			// Fake one
+			caBounds.y = (caBounds.y + caBounds.height) - 25;
+			caBounds.height = 25;
+			return caBounds;
+		}
+		if (side == SWT.LEFT) {
+			if (left != null && left.getChildren().length > 0) {
+				Rectangle b = left.getBounds();
+				b = left.getDisplay().map(left.getParent(), null, b);
+				return b;
+			}
+
+			// Fake one
+			caBounds.width = 25;
+			return caBounds;
+		}
+		if (side == SWT.RIGHT) {
+			if (right != null && right.getChildren().length > 0) {
+				Rectangle b = right.getBounds();
+				b = right.getDisplay().map(right.getParent(), null, b);
+				return b;
+			}
+
+			// Fake one
+			caBounds.x = (caBounds.x + caBounds.width) - 25;
+			caBounds.width = 25;
+			return caBounds;
+		}
+		return null;
+	}
 }

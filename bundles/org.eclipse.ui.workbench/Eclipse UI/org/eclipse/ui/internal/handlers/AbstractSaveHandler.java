@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -65,6 +65,10 @@ public abstract class AbstractSaveHandler extends AbstractEvaluationHandler {
 
 		if (activePart instanceof ISaveablePart)
 			return (ISaveablePart) activePart;
+
+		ISaveablePart part = (ISaveablePart) Util.getAdapter(activePart, ISaveablePart.class);
+		if (part != null)
+			return part;
 
 		return InternalHandlerUtil.getActiveEditor(context);
 	}

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import org.eclipse.e4.core.commands.ExpressionContext;
 import org.eclipse.e4.ui.internal.workbench.ContributionsAnalyzer;
 import org.eclipse.e4.ui.model.application.MApplication;
 import org.eclipse.e4.ui.model.application.commands.MCommand;
@@ -25,7 +26,6 @@ import org.eclipse.e4.ui.model.application.ui.menu.MMenu;
 import org.eclipse.e4.ui.model.application.ui.menu.MMenuContribution;
 import org.eclipse.e4.ui.model.application.ui.menu.MMenuElement;
 import org.eclipse.e4.ui.model.application.ui.menu.impl.MenuFactoryImpl;
-import org.eclipse.e4.ui.workbench.modeling.ExpressionContext;
 import org.eclipse.jface.action.ContributionItem;
 import org.eclipse.jface.action.IContributionItem;
 import org.eclipse.jface.action.IMenuListener;
@@ -45,13 +45,13 @@ import org.eclipse.ui.IWorkbenchCommandConstants;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.commands.ICommandImageService;
 import org.eclipse.ui.internal.services.IWorkbenchLocationService;
 import org.eclipse.ui.internal.services.WorkbenchSourceProvider;
 import org.eclipse.ui.internal.util.Util;
 import org.eclipse.ui.menus.CommandContributionItem;
 import org.eclipse.ui.menus.CommandContributionItemParameter;
-import org.eclipse.ui.menus.IMenuService;
 import org.eclipse.ui.menus.IWorkbenchContribution;
 import org.eclipse.ui.menus.MenuUtil;
 import org.eclipse.ui.part.IShowInSource;
@@ -127,23 +127,32 @@ public class ShowInMenu extends ContributionItem implements
 		}
 
 		if (currentManager!=null && currentManager.getSize() > 0) {
-			IMenuService service = (IMenuService) locator
-					.getService(IMenuService.class);
-			service.releaseContributions(currentManager);
+			// IMenuService service = (IMenuService) locator
+			// .getService(IMenuService.class);
+			// service.releaseContributions(currentManager);
 			currentManager.removeAll();
 		}
 
 		currentManager = new MenuManager();
 		fillMenu(currentManager);
+		int itemCount = menu.getItemCount();
 		IContributionItem[] items = currentManager.getItems();
 		if (items.length == 0) {
-			MenuItem item = new MenuItem(menu, SWT.NONE, index++);
+			MenuItem item = new MenuItem(menu, SWT.NONE, index == -1 ? itemCount : index);
 			item.setText(NO_TARGETS_MSG);
 			item.setEnabled(false);
 		} else {
 			for (int i = 0; i < items.length; i++) {
-				if (items[i].isVisible()) {
-					items[i].fill(menu, index++);
+				IContributionItem item = items[i];
+				if (item.isVisible()) {
+					if (index == -1) {
+						item.fill(menu, -1);
+					} else {
+						item.fill(menu, index);
+						int newItemCount = menu.getItemCount();
+						index += newItemCount - itemCount;
+						itemCount = newItemCount;
+					}
 				}
 			}
 		}
@@ -154,13 +163,16 @@ public class ShowInMenu extends ContributionItem implements
 	 * Fills the menu with Show In actions.
 	 */
 	private void fillMenu(IMenuManager innerMgr) {
+		IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+		WorkbenchPartReference r = (WorkbenchPartReference) page.getActivePartReference();
+		if (page != null && r != null && r.getModel() != null) {
+			((WorkbenchPage) page).updateShowInSources(r.getModel());
+		}
+
 		// Remove all.
 		innerMgr.removeAll();
 
 		IWorkbenchPart sourcePart = getSourcePart();
-		if (sourcePart == null) {
-			return;
-		}
 		ShowInContext context = getContext(sourcePart);
 		if (context == null) {
 			return;
@@ -178,7 +190,7 @@ public class ShowInMenu extends ContributionItem implements
 				innerMgr.add(cci);
 			}
 		}
-		if (innerMgr instanceof MenuManager) {
+		if (sourcePart != null && innerMgr instanceof MenuManager) {
 			ISourceProviderService sps = (ISourceProviderService) locator
 					.getService(ISourceProviderService.class);
 			ISourceProvider sp = sps
@@ -200,10 +212,7 @@ public class ShowInMenu extends ContributionItem implements
 			ExpressionContext eContext = new ExpressionContext(workbenchWindow.getModel()
 					.getContext());
 			ContributionsAnalyzer.gatherMenuContributions(menuModel,
-					application.getMenuContributions(), menuModel.getElementId(), toContribute,
-					eContext, true);
-			ContributionsAnalyzer.gatherMenuContributions(menuModel,
-					application.getMenuContributions(), location, toContribute, eContext, false);
+					application.getMenuContributions(), location, toContribute, eContext, true);
 			ContributionsAnalyzer.addMenuContributions(menuModel, toContribute,
 					menuContributionsToRemove);
 
@@ -217,6 +226,16 @@ public class ShowInMenu extends ContributionItem implements
 					CommandContributionItemParameter ccip = new CommandContributionItemParameter(
 							workbenchWindow, commandId, commandId,
 							CommandContributionItem.STYLE_PUSH);
+					String label = menuElement.getLabel();
+					if (label.length() > 0) {
+						ccip.label = label;
+						String mnemonics = menuElement.getMnemonics();
+						if (mnemonics != null && mnemonics.length() == 1) {
+							ccip.mnemonic = mnemonics;
+						} else {
+							ccip.mnemonic = label.substring(0, 1);
+						}
+					}
 					String iconURI = menuElement.getIconURI();
 					try {
 						ccip.icon = ImageDescriptor.createFromURL(new URL(iconURI));
@@ -234,7 +253,7 @@ public class ShowInMenu extends ContributionItem implements
 	 * @param viewDescriptor
 	 * @return the show in command contribution item
 	 */
-	private IContributionItem getContributionItem(IViewDescriptor viewDescriptor) {
+	protected IContributionItem getContributionItem(IViewDescriptor viewDescriptor) {
 		CommandContributionItemParameter parm = new CommandContributionItemParameter(
 				locator, viewDescriptor.getId(), IWorkbenchCommandConstants.NAVIGATE_SHOW_IN,
 				CommandContributionItem.STYLE_PUSH);
@@ -243,6 +262,9 @@ public class ShowInMenu extends ContributionItem implements
 				viewDescriptor.getId());
 		parm.parameters = targetId;
 		parm.label = viewDescriptor.getLabel();
+		if (parm.label.length() > 0) {
+			parm.mnemonic = parm.label.substring(0, 1);
+		}
 		parm.icon = viewDescriptor.getImageDescriptor();
 		return new CommandContributionItem(parm);
 	}
@@ -255,7 +277,15 @@ public class ShowInMenu extends ContributionItem implements
 		ArrayList targetIds = new ArrayList();
 		WorkbenchPage page = (WorkbenchPage) getWindow().getActivePage();
 		if (page != null) {
-			targetIds.addAll(page.getShowInPartIds());
+			String srcId = sourcePart == null ? null : sourcePart.getSite().getId();
+			ArrayList<?> pagePartIds = page.getShowInPartIds();
+			for (Object pagePartId : pagePartIds) {
+				// Don't add own view, except when explicitly requested with
+				// IShowInTargetList below
+				if (!pagePartId.equals(srcId)) {
+					targetIds.add(pagePartId);
+				}
+			}
 		}
 		IShowInTargetList targetList = getShowInTargetList(sourcePart);
 		if (targetList != null) {
@@ -283,9 +313,10 @@ public class ShowInMenu extends ContributionItem implements
 	 */
 	private IWorkbenchPart getSourcePart() {
 		IWorkbenchWindow window = getWindow();
-		
-		if(window == null)	return null;
-		
+
+		if (window == null)
+			return null;
+
 		IWorkbenchPage page = window.getActivePage();
 		if (page != null) {
 			return page.getActivePart();
@@ -310,7 +341,7 @@ public class ShowInMenu extends ContributionItem implements
 	 * or <code>null</code> if it does not provide one.
 	 * 
 	 * @param sourcePart
-	 *            the source part
+	 *            the source part or <code>null</code>
 	 * @return the <code>IShowInTargetList</code> or <code>null</code>
 	 */
 	private IShowInTargetList getShowInTargetList(IWorkbenchPart sourcePart) {
@@ -331,18 +362,20 @@ public class ShowInMenu extends ContributionItem implements
 	 * 
 	 * @return the <code>ShowInContext</code> to show or <code>null</code>
 	 */
-	private ShowInContext getContext(IWorkbenchPart sourcePart) {
-		IShowInSource source = getShowInSource(sourcePart);
-		if (source != null) {
-			ShowInContext context = source.getShowInContext();
-			if (context != null) {
-				return context;
+	protected ShowInContext getContext(IWorkbenchPart sourcePart) {
+		if (sourcePart != null) {
+			IShowInSource source = getShowInSource(sourcePart);
+			if (source != null) {
+				ShowInContext context = source.getShowInContext();
+				if (context != null) {
+					return context;
+				}
+			} else if (sourcePart instanceof IEditorPart) {
+				Object input = ((IEditorPart) sourcePart).getEditorInput();
+				ISelectionProvider sp = sourcePart.getSite().getSelectionProvider();
+				ISelection sel = sp == null ? null : sp.getSelection();
+				return new ShowInContext(input, sel);
 			}
-		} else if (sourcePart instanceof IEditorPart) {
-			Object input = ((IEditorPart) sourcePart).getEditorInput();
-			ISelectionProvider sp = sourcePart.getSite().getSelectionProvider();
-			ISelection sel = sp == null ? null : sp.getSelection();
-			return new ShowInContext(input, sel);
 		}
 		return null;
 	}
@@ -351,17 +384,14 @@ public class ShowInMenu extends ContributionItem implements
 	 * Returns the view descriptors to show in the dialog.
 	 */
 	private IViewDescriptor[] getViewDescriptors(IWorkbenchPart sourcePart) {
-		String srcId = sourcePart.getSite().getId();
 		ArrayList ids = getShowInPartIds(sourcePart);
 		ArrayList descs = new ArrayList();
 		IViewRegistry reg = WorkbenchPlugin.getDefault().getViewRegistry();
 		for (Iterator i = ids.iterator(); i.hasNext();) {
 			String id = (String) i.next();
-			if (!id.equals(srcId)) {
-				IViewDescriptor desc = reg.find(id);
-				if (desc != null) {
-					descs.add(desc);
-				}
+			IViewDescriptor desc = reg.find(id);
+			if (desc != null) {
+				descs.add(desc);
 			}
 		}
 		return (IViewDescriptor[]) descs.toArray(new IViewDescriptor[descs
@@ -402,11 +432,11 @@ public class ShowInMenu extends ContributionItem implements
 	 */
 	public void dispose() {
 		if (currentManager != null && currentManager.getSize() > 0) {
-			IMenuService service = (IMenuService) locator
-					.getService(IMenuService.class);
-			if (service != null) {
-				service.releaseContributions(currentManager);
-			}
+			// IMenuService service = (IMenuService) locator
+			// .getService(IMenuService.class);
+			// if (service != null) {
+			// service.releaseContributions(currentManager);
+			// }
 			currentManager.removeAll();
 			currentManager = null;
 		}
